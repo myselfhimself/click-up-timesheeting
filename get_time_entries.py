@@ -1,22 +1,23 @@
 import requests
 from datetime import datetime, timezone
 from dateutil import tz
+from dateutil.relativedelta import relativedelta
 import pytz
 from sys import argv
 from dotenv import load_dotenv
 import os
 import sys
+import fire
 
 load_dotenv()
 
 CLICKUP_PK = os.getenv("CLICKUP_PK", False)
-if not CLICKUP_PK:
-    print("Please set CLICKUP_PK in a .env file, see .env.tpl")
-    sys.exit(1)
+
+DEFAULT_MONTHS_BACKWARDS = 12
 
 TASKS = {}
 
-def get_task_general_data(task_id):
+def get_task_general_data(task_id, click_up_token):
     if task_id in TASKS.keys():
         return TASKS[task_id]
     url = "https://api.clickup.com/api/v2/task/" + task_id
@@ -29,7 +30,7 @@ def get_task_general_data(task_id):
     
     headers = {
       "Content-Type": "application/json",
-      "Authorization": CLICKUP_PK
+      "Authorization": click_up_token
     }
     
     response = requests.get(url, headers=headers, params=query)
@@ -41,26 +42,44 @@ def get_task_general_data(task_id):
 def formatted_total_duration_human(tdh):
     return f"{tdh[0]:.0f}h{tdh[1]:.0f}m{tdh[2]:.0f}"
 
-def print_time_entries(since_date=None, to_date=None):
+def print_time_entries(from_date=None, to_date=None, click_up_token=None):
 
     team_id = "4711228"
     url = "https://api.clickup.com/api/v2/team/" + team_id + "/time_entries"
 
     paris_tz = tz.gettz("Europe/Paris")
+    datetime_format = "%Y-%m-%d %H:%M:%S"
 
-    if since_date:
-        since_date += " 00:00:00"
-
-    if to_date:
+    if not to_date:
+        to_date = datetime.today().strftime(datetime_format)
+    else:
         to_date += " 23:59:59"
 
-    print("Gathering Click-Up time entries from {} to {}".format(since_date, to_date if to_date else "now"))
 
-    since_date_ts = datetime.strptime(since_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=paris_tz).timestamp()*1000 if since_date else "0"
-    to_date_ts = datetime.strptime(to_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=paris_tz).timestamp()*1000 if to_date else "0"
+    if not from_date:
+        if not to_date:
+            from_date = datetime.today().replace(day=1, hour=0, minute=0, second=0).strftime(datetime_format)
+        else:
+            from_date = (datetime.strptime(to_date, datetime_format) - relativedelta(months=DEFAULT_MONTHS_BACKWARDS)).strftime(datetime_format)
+    else:
+        from_date += " 00:00:00"
+
+
+    if not click_up_token:
+        if CLICKUP_PK:
+            click_up_token = CLICKUP_PK
+        else:
+            print("Missing Click-Up token (pk_* value), set it in .env or through the appropriate command line parameter (see --help).")
+            sys.exit(1)
     
+
+    print("Gathering Click-Up time entries from {} to {}".format(from_date, to_date if to_date else "now"))
+
+    from_date_ts = datetime.strptime(from_date, datetime_format).replace(tzinfo=paris_tz).timestamp()*1000 if from_date else "0"
+    to_date_ts = datetime.strptime(to_date, datetime_format).replace(tzinfo=paris_tz).timestamp()*1000 if to_date else "0"
+
     query = {
-      "start_date": str(int(since_date_ts)),
+      "start_date": str(int(from_date_ts)),
       "end_date": str(int(to_date_ts)),
     #  "assignee": "0",
     #  "include_task_tags": "true",
@@ -75,7 +94,7 @@ def print_time_entries(since_date=None, to_date=None):
     
     headers = {
       "Content-Type": "application/json",
-      "Authorization": "***REMOVED***"
+      "Authorization": click_up_token
     }
     
     response = requests.get(url, headers=headers, params=query)
@@ -89,7 +108,7 @@ def print_time_entries(since_date=None, to_date=None):
     
     for d in data['data']:
         #print(d['task']['id'])
-        task_data = get_task_general_data(d['task']['id'])
+        task_data = get_task_general_data(d['task']['id'], click_up_token)
         #print(d['task']['name'], "---", task_data['list']['name'])
         duration_seconds = int(d['duration'])/1000
         undived_total_seconds += duration_seconds
@@ -120,6 +139,8 @@ def print_time_entries(since_date=None, to_date=None):
     print()
     print(f"Total: {hours:.0f}h{minutes:.0f}m{seconds:.0f}")
 
+def main(from_date=None, to_date=None, click_up_token=None):
+    print_time_entries(from_date, to_date, click_up_token)
+
 if __name__ == "__main__":
-    if len(argv) in (2,3):
-        print_time_entries(argv[1] if len(argv) >= 2 else None, argv[2] if len(argv) == 3 else None)
+    fire.Fire(main)
