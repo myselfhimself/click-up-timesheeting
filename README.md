@@ -6,6 +6,10 @@ This comes in handy for invoicing your customer.
 
 Possible outputs are: JSON, HTML, PDF.
 
+## Technological stack
+
+This Python 3.x project leverages [WeasyPrint](https://weasyprint.org/) for PDF rendering, the [Click-Up](https://clickup.com/) REST API to get time tracking info using your API token, [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) for HTML-templating and [Babel](https://babel.pocoo.org/en/latest/index.html)/[gettext](https://python.readthedocs.io/en/latest/library/gettext.html) for translation.
+
 ## Examples
 
 See the `examples/` directory for sample JSON, HTML and PDF files using the template and company logo from the `templates/` directory.
