@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>{{ document_title }}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+    }
+
+    .days th,
+    .tasks th {
+      background-color: grey;
+    }
+
+    .days table,
+    .tasks table {
+      width: 100%;
+    }
+
+    .days th,
+    .days td,
+    .tasks th,
+    .tasks td {
+      padding-left: 0.3em;
+    }
+
+    .days table,
+    .days th,
+    .days td,
+    .tasks table,
+    .tasks th,
+    .tasks td {
+      border: 1px solid black;
+      border-collapse: collapse;
+    }
+
+    div.days,
+    div.tasks {
+      margin-bottom: 3em;
+    }
+  </style>
+</head>
+
+<body>
+<h1>{{ _("Timesheet") }}</h1>
+  <div class="days">
+    <table>
+      <tr>
+        <th>{{ _("Date") }}</th>
+        <th>{{ _("Duration") }}</th>
+      </tr>
+      {% for day_entry in time_entries.days %}
+      <tr>
+        <td>{{ day_entry.human_date }}</td>
+        <td>{{ day_entry.total_duration_human }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="tasks">
+    <table>
+      <tr>
+        <th>{{ _("Task") }}</th>
+        <th>{{ _("List") }}</th>
+        <th>{{ _("Folder") }}</th>
+        <th>{{ _("Project") }}</th>
+      </tr>
+      {% for task in time_entries.tasks %}
+      <tr>
+        <td>{{ task.name }}</td>
+        <td>{{ task.list }}</td>
+        <td>{{ task.folder }}</td>
+        <td>{{ task.project }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="summary">
+    <p>{{_("Total duration:")}} {{ time_entries.total_duration.hours | int }} {{ _("hours") }} {{
+      time_entries.total_duration.minutes | int
+      }}
+      {{ _("minutes") }}</p>
+  </div>
+</body>
+
+</html>

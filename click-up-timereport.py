@@ -2,12 +2,14 @@ import requests
 from datetime import datetime, timezone
 from dateutil import tz
 from dateutil.relativedelta import relativedelta
+import json
 import pytz
 from sys import argv
 from dotenv import load_dotenv
 import os
 import sys
 import fire
+import gettext
 
 load_dotenv()
 
@@ -15,6 +17,12 @@ CLICKUP_PK = os.getenv("CLICKUP_PK", False)
 
 DEFAULT_MONTHS_BACKWARDS = 12
 DEFAULT_TIMEZONE = "Europe/Paris"
+DEFAULT_HTML_TITLE = "Time entries"
+DEFAULT_HTML_JINJA_TEMPLATE_DIRECTORY = "templates/"
+DEFAULT_HTML_JINJA_TEMPLATE = "simple-report.html.j2"
+DEFAULT_PDF_OUTPUT_PATH = "time-entries.pdf"
+DEFAULT_JSON_OUTPUT_PATH = "time-entries.json"
+DEFAULT_JSON_INDENTS = 2
 
 # Tasks-based view for time tracking
 TASKS = {}
@@ -189,6 +197,70 @@ def grab_time_entries(
     print()
 
 
+def get_time_entries():
+    """Prepares a time entries and total dictionary from TASKS and DAYS views.
+    This function's results can be piped into print_time_entries() or render_time_entries_html() for console or HTML/PDF rendering.
+
+    This should be called after grab_time_entries() which takes care of populating depending data views.
+    """
+    days = [
+        {
+            "human_date": DAYS[date]["human_date"],
+            "total_duration_human": formatted_total_duration_human(
+                DAYS[date]["total_duration_human"]
+            ),
+        }
+        for date in sorted(DAYS)
+    ]
+    tasks = [
+        {
+            "name": v["name"],
+            "list": v["list"]["name"],
+            "project": v["project"]["name"],
+            "folder": v["folder"]["name"],
+            "total_duration_human": formatted_total_duration_human(
+                v["total_duration_human"]
+            ),
+        }
+        for k, v in TASKS.items()
+    ]
+
+    undived_total_seconds = sum(v["total_duration"] for v in TASKS.values())
+    minutes, seconds = divmod(undived_total_seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+
+    return {
+        "days": days,
+        "tasks": tasks,
+        "total_duration": {"hours": hours, "minutes": minutes, "seconds": seconds},
+    }
+
+
+def print_time_entries_new(entries):
+    """Prints nicely day-based and task-based statistics, as stored in the TASKS and DAYS views."""
+    print("Daily time sheet:")
+    for date_entry in entries["days"]:
+        print(date_entry["human_date"], date_entry["total_duration_human"])
+
+    print()
+    print("Tasks summary:")
+    for task in entries["tasks"]:
+        print(
+            task["name"],
+            task["list"],
+            task["project"],
+            task["folder"],
+            task["total_duration_human"],
+        )
+
+    print()
+    print(
+        "Total: {hours:.0f}h{minutes:.0f}m{seconds:.0f}".format(
+            **entries["total_duration"]
+        )
+    )
+
+
 def print_time_entries():
     """Prints nicely day-based and task-based statistics, as stored in the TASKS and DAYS views.
 
@@ -221,10 +293,57 @@ def print_time_entries():
     print(f"Total: {hours:.0f}h{minutes:.0f}m{seconds:.0f}")
 
 
-def main(from_date=None, to_date=None, click_up_token=None, time_zone=DEFAULT_TIMEZONE):
+def render_time_entries_html(time_entries, title=DEFAULT_HTML_TITLE):
+    from jinja2 import Environment, FileSystemLoader
+
+    environment = Environment(
+        loader=FileSystemLoader(DEFAULT_HTML_JINJA_TEMPLATE_DIRECTORY),
+        extensions=["jinja2.ext.i18n"],
+    )
+    translations = gettext.translation(
+        "messages",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "locale")),
+        languages=["fr_FR"],
+    )
+    environment.install_gettext_translations(translations)
+
+    template = environment.get_template(DEFAULT_HTML_JINJA_TEMPLATE)
+    content = template.render(
+        {"document_title": "Time entries", "time_entries": time_entries}
+    )
+    return content
+
+
+def render_pdf(html_content, pdf_output_path=DEFAULT_PDF_OUTPUT_PATH):
+    from weasyprint import HTML
+
+    HTML(string=html_content).write_pdf(pdf_output_path)
+
+
+def main(
+    from_date=None,
+    to_date=None,
+    click_up_token=None,
+    time_zone=DEFAULT_TIMEZONE,
+    as_json=False,
+    as_pdf=False,
+    json_output_path=DEFAULT_JSON_OUTPUT_PATH,
+    pdf_output_path=DEFAULT_PDF_OUTPUT_PATH,
+):
     grab_time_entries(from_date, to_date, click_up_token)
-    print()
-    print_time_entries()
+    time_entries = get_time_entries()
+    if as_json:
+        with open((json_output_path or DEFAULT_JSON_OUTPUT_PATH), "w") as fp:
+            fp.write(json.dumps(time_entries, indent=DEFAULT_JSON_INDENTS))
+        print("Wrote", json_output_path)
+
+    print_time_entries_new(time_entries)
+    if as_pdf:
+        render_pdf(
+            render_time_entries_html(time_entries),
+            (pdf_output_path or DEFAULT_PDF_OUTPUT_PATH),
+        )
+        print("Wrote", pdf_output_path)
 
 
 if __name__ == "__main__":

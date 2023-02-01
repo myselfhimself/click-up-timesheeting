@@ -43,3 +43,9 @@ Quick and dirty CLI script to give an overview of one's worked hours on Click-Up
 ## License
 
 Public domain.
+
+## Tips
+Translations `.po` files where created with:
+```
+pybabel extract templates/simple-report.html.j2 -o locale/fr_FR/LC_MESSAGES/fr_FR.po
+```
