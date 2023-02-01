@@ -1,3 +1,5 @@
+![pytest ci status](https://github.com/myselfhimself/click-up-timesheeting/actions/workflows/ci.yml/badge.svg?branch=main)
+
 Quick and dirty CLI script to give an overview of one's worked hours on Click-Up by project between two dates.
 
 This comes in handy for invoicing your customer.
@@ -105,7 +107,7 @@ The following fields are optional and apply for both HTML & PDF outputs.
 Add `--output-title="My time record title"` to custome the HTML page title or PDF document title.
 
 ### Company logo
-Add `--company-logo=<path to your non-SVG raster file>`, successfully tested with PNG. For rendering, the image is encoded to base64 first then injected into the template.
+Add `--company-logo-img-path=<path to your non-SVG raster file>`, successfully tested with PNG. For rendering, the image is encoded to base64 first then injected into the template.
 
 ## Customer name
 Add `--customer-name=<name of customer company or person>`.
