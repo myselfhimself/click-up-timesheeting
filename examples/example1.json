@@ -1,0 +1,157 @@
+{
+  "from_date": "2023-01-01",
+  "to_date": "2023-01-31",
+  "days": [
+    {
+      "human_date": "mardi 3 janvier 2023",
+      "iso_date": "2023-01-03T11:16:05.404000+01:00",
+      "total_duration_raw": [
+        6.0,
+        20.0,
+        0.0
+      ],
+      "total_duration_human": "6h20m0s"
+    },
+    {
+      "human_date": "mercredi 4 janvier 2023",
+      "iso_date": "2023-01-04T10:39:00.992000+01:00",
+      "total_duration_raw": [
+        7.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "7h0m0s"
+    },
+    {
+      "human_date": "jeudi 5 janvier 2023",
+      "iso_date": "2023-01-05T11:19:10.158000+01:00",
+      "total_duration_raw": [
+        7.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "7h0m0s"
+    },
+    {
+      "human_date": "vendredi 6 janvier 2023",
+      "iso_date": "2023-01-06T17:21:00+01:00",
+      "total_duration_raw": [
+        6.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "6h0m0s"
+    },
+    {
+      "human_date": "mercredi 11 janvier 2023",
+      "iso_date": "2023-01-11T11:51:53.337000+01:00",
+      "total_duration_raw": [
+        5.0,
+        30.0,
+        0.0
+      ],
+      "total_duration_human": "5h30m0s"
+    },
+    {
+      "human_date": "lundi 16 janvier 2023",
+      "iso_date": "2023-01-16T11:20:20.485000+01:00",
+      "total_duration_raw": [
+        6.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "6h0m0s"
+    },
+    {
+      "human_date": "mardi 17 janvier 2023",
+      "iso_date": "2023-01-17T11:55:37.489000+01:00",
+      "total_duration_raw": [
+        6.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "6h0m0s"
+    },
+    {
+      "human_date": "mercredi 18 janvier 2023",
+      "iso_date": "2023-01-18T10:55:00+01:00",
+      "total_duration_raw": [
+        7.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "7h0m0s"
+    },
+    {
+      "human_date": "jeudi 19 janvier 2023",
+      "iso_date": "2023-01-19T10:55:46.511000+01:00",
+      "total_duration_raw": [
+        7.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "7h0m0s"
+    },
+    {
+      "human_date": "vendredi 20 janvier 2023",
+      "iso_date": "2023-01-20T10:18:56.587000+01:00",
+      "total_duration_raw": [
+        7.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "7h0m0s"
+    },
+    {
+      "human_date": "mardi 24 janvier 2023",
+      "iso_date": "2023-01-24T10:32:47.683000+01:00",
+      "total_duration_raw": [
+        7.0,
+        0.0,
+        0.0
+      ],
+      "total_duration_human": "7h0m0s"
+    },
+    {
+      "human_date": "mercredi 25 janvier 2023",
+      "iso_date": "2023-01-25T18:00:11.252000+01:00",
+      "total_duration_raw": [
+        7.0,
+        0.0,
+        2.1419999999998254
+      ],
+      "total_duration_human": "7h0m2s"
+    }
+  ],
+  "tasks": [
+    {
+      "name": "Modifications avant livraison",
+      "list": "D\u00e9veloppement",
+      "project": "Breakfast'ed",
+      "folder": "Breakfast'ed",
+      "total_duration_raw": [
+        6.0,
+        20.0,
+        0.0
+      ],
+      "total_duration_human": "6h20m0s"
+    },
+    {
+      "name": "Points bloquants -  LOGICIEL Breakfast'ed",
+      "list": "Breakfast'ed / HGI",
+      "project": "Breakfast'ed",
+      "folder": "Breakfast'ed",
+      "total_duration_raw": [
+        72.0,
+        30.0,
+        2.1419999999925494
+      ],
+      "total_duration_human": "72h30m2s"
+    }
+  ],
+  "total_duration": {
+    "hours": 78.0,
+    "minutes": 50.0,
+    "seconds": 2.1419999999925494
+  }
+}
