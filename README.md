@@ -103,16 +103,16 @@ python click-up-timereport.py --from-date=2023-01-01 --to-date=2023-01-31 --as-p
 ## Enriching HTML & PDF outputs
 The following fields are optional and apply for both HTML & PDF outputs.
 
-## Document title
+### Document title
 Add `--output-title="My time record title"` to custome the HTML page title or PDF document title.
 
-### Company logo
+#### Company logo
 Add `--company-logo-img-path=<path to your non-SVG raster file>`, successfully tested with PNG. For rendering, the image is encoded to base64 first then injected into the template.
 
-## Customer name
+### Customer name
 Add `--customer-name=<name of customer company or person>`.
 
-## Consultant name
+### Consultant name
 Add `--consultant-name=<name of consultant>`.
 
 ## i18n tips
@@ -121,6 +121,22 @@ Translations `.po` files in `locale/` were created by hand and compiled to `.mo`
 ```
 pybabel compile --domain=messages --directory=locale --use-fuzzy
 ```
+
+## Running tests
+You need to install pytest first:
+```
+pip install pytest
+pip install -r requirements.txt
+py.test tests.py
+```
+
+An 'artifacts/' directory gets created in pytest's current working directory, for generating sample JSON/PDF/HTML files
+
+To keep it, set the `KEEP_FILES_FOR_ARTIFACTS` environment variable to anything.
+
+Head over to the [Actions tab](https://github.com/myselfhimself/click-up-timesheeting/actions) to understand how those tests work.
+```
+
 
 ## License
 

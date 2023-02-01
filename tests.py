@@ -10,6 +10,8 @@ import uuid
 # third-party modules
 import pytest
 
+# This is run by .github/workflows/ci.yml :)
+
 EXECUTABLE_UNDER_TEST = "click-up-timereport.py"
 ARTIFACTS_DIRECTORY="artifacts" # no trailing slash
 
