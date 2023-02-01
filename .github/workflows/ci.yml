@@ -18,6 +18,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Run tests
       run: |
+        pip install -r requirements.txt
         pip install pytest
         # The tests create an artifact/ directory, which remains undeleted
         # thanks to the KEEP_FILES_FOR_ARTIFACTS variable.
