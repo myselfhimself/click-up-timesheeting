@@ -11,6 +11,10 @@
       size: A4 portrait;
     }
 
+    img.company-logo {
+      width: 200px;
+    }
+
     .days th,
     .tasks th {
       background-color: grey;
@@ -51,7 +55,19 @@
 </head>
 
 <body>
+  {% if base64_company_logo %}
+  <img class="company-logo" src="{{ base64_company_logo }}" alt="company logo" />
+  {% endif %}
+
   <h1>{{ _("Timesheet") }}</h1>
+
+  {% if customer_name %}
+  <h3>{{ _("Services for:") }} {{customer_name}}</h3>
+  {% endif %}
+
+  {% if consultant_name %}
+  <h3>{{ _("Consultant:") }} {{consultant_name}}</h3>
+  {% endif %}
 
   <h3>{{ _("From:") }} {{ str_to_date(time_entries.from_date, "short") }} {{ _("To:") }} {{
     str_to_date(time_entries.to_date, "short") }}</h3>

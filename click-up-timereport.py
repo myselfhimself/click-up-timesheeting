@@ -1,5 +1,6 @@
 import requests
 from babel.dates import format_date
+import base64
 from datetime import datetime, timezone
 from dateutil import tz
 from dateutil.relativedelta import relativedelta
@@ -8,6 +9,7 @@ import pytz
 from sys import argv
 from dotenv import load_dotenv
 import os
+import os.path
 import sys
 import fire
 import gettext
@@ -276,8 +278,22 @@ def print_time_entries(entries):
     )
 
 
-def render_time_entries_html(time_entries, title=None, language=None):
+def render_time_entries_html(
+    time_entries,
+    title=None,
+    language=None,
+    company_logo=None,
+    customer_name=None,
+    consultant_name=None,
+):
     from jinja2 import Environment, FileSystemLoader
+
+    company_logo_base64 = None
+    if company_logo:
+        with open(company_logo, "rb") as logo_fp:
+            company_logo_base64 = "data:image/png;base64," + base64.encodebytes(
+                logo_fp.read()
+            ).decode("utf-8")
 
     if not language:
         language = DEFAULT_LANGUAGE
@@ -302,7 +318,16 @@ def render_time_entries_html(time_entries, title=None, language=None):
 
     template = environment.get_template(DEFAULT_HTML_JINJA_TEMPLATE)
     template.globals["str_to_date"] = jinja_render_date_str_with_babel
-    content = template.render({"document_title": title, "time_entries": time_entries})
+    content = template.render(
+        {
+            "document_title": title,
+            "customer_name": customer_name,
+            "consultant_name": consultant_name,
+            "time_entries": time_entries,
+            "base64_company_logo": company_logo_base64,
+        },
+        presentational_hints=True,
+    )
     return content
 
 
@@ -333,6 +358,9 @@ def main(
     pdf_output_path=DEFAULT_PDF_OUTPUT_PATH,
     output_title=DEFAULT_HTML_TITLE,
     language=DEFAULT_LANGUAGE,
+    company_logo_img_path=None,
+    customer_name=None,
+    consultant_name=None,
 ):
     language = (
         "fr_FR"
@@ -377,8 +405,18 @@ def main(
     # CLI standard output
     print_time_entries(time_entries)
 
+    if company_logo_img_path:
+        if not os.path.exists(company_logo_img_path):
+            print("Provided company logo file does not exist.")
+            exit(1)
+
     html_content = render_time_entries_html(
-        time_entries, title=output_title, language=language
+        time_entries,
+        title=output_title,
+        language=language,
+        company_logo=company_logo_img_path,
+        customer_name=customer_name,
+        consultant_name=consultant_name,
     )
 
     # HTML output
