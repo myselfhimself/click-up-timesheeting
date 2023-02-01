@@ -25,6 +25,11 @@
     .days td,
     .tasks th,
     .tasks td {
+      text-align: center;
+    }
+
+    .days td.date {
+      text-align: left;
       padding-left: 0.3em;
     }
 
@@ -46,7 +51,11 @@
 </head>
 
 <body>
-<h1>{{ _("Timesheet") }}</h1>
+  <h1>{{ _("Timesheet") }}</h1>
+
+  <h3>{{ _("From:") }} {{ str_to_date(time_entries.from_date, "short") }} {{ _("To:") }} {{
+    str_to_date(time_entries.to_date, "short") }}</h3>
+
   <div class="days">
     <table>
       <tr>
@@ -55,8 +64,9 @@
       </tr>
       {% for day_entry in time_entries.days %}
       <tr>
-        <td>{{ day_entry.human_date }}</td>
-        <td>{{ day_entry.total_duration_human }}</td>
+        <td class="date">{{ str_to_date(day_entry.iso_date, "full") }}</td>
+        <td>{{ '%02d' | format(day_entry.total_duration_raw[0]|int) }}:{{ '%02d' |
+          format(day_entry.total_duration_raw[1]|int) }}:{{ '%02d' | format(day_entry.total_duration_raw[2]|int) }}</td>
       </tr>
       {% endfor %}
     </table>
@@ -69,6 +79,7 @@
         <th>{{ _("List") }}</th>
         <th>{{ _("Folder") }}</th>
         <th>{{ _("Project") }}</th>
+        <th>{{ _("Duration") }}</th>
       </tr>
       {% for task in time_entries.tasks %}
       <tr>
@@ -76,6 +87,9 @@
         <td>{{ task.list }}</td>
         <td>{{ task.folder }}</td>
         <td>{{ task.project }}</td>
+        {# <td>{{ task.total_duration_human }}</td> #}
+        <td>{{ '%02d' | format(task.total_duration_raw[0]|int) }}:{{ '%02d' |
+          format(task.total_duration_raw[1]|int) }}:{{ '%02d' | format(task.total_duration_raw[2]|int) }}</td>
       </tr>
       {% endfor %}
     </table>
