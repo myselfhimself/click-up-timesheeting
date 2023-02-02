@@ -2,11 +2,11 @@
 
 Quick and dirty CLI script to give an overview of one's worked hours on Click-Up by project between two dates.
 
-Requests to the Click-Up REST V2 API are made for you using your Click-Up team_id and [Click-Up `pk_*` API key (called token here)](https://clickup.com/api/developer-portal/trytheapi/#step-1-enter-your-api-key).
-
 This comes in handy for invoicing your customer.
 
-Possible outputs are: JSON, HTML, PDF.
+Requests to the Click-Up REST V2 API are made for you using your Click-Up `team_id` (optional) and [Click-Up `pk_*` API key (called token here)](https://clickup.com/api/developer-portal/trytheapi/#step-1-enter-your-api-key).
+
+Possible outputs are: JSON, HTML, PDF, with optional company logo, interval dates, customer name, consultant name.
 
 ## Technological stack
 
@@ -14,7 +14,8 @@ This Python 3.x project leverages:
 - [WeasyPrint](https://weasyprint.org/) for PDF rendering,
 - the [Click-Up](https://clickup.com/) REST API to get time tracking info using your API token,
 - [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) for HTML-templating,
-- [Babel](https://babel.pocoo.org/en/latest/index.html)/[gettext](https://python.readthedocs.io/en/latest/library/gettext.html) for translation.
+- [Babel](https://babel.pocoo.org/en/latest/index.html)/[gettext](https://python.readthedocs.io/en/latest/library/gettext.html) for translation,
+- [Fire](https://google.github.io/python-fire/) for entry point conversion into a CLI application.
 
 ## Usage
 
@@ -151,7 +152,7 @@ pybabel compile --domain=messages --directory=locale --use-fuzzy
 ```
 
 ## Running tests
-You need to install `pytest` and `requests-mock` first using a test-oriented requirements file:
+You need to install `pytest`, `requests-mock` and `python-slugify` first using a test-oriented requirements file:
 ```
 pip install -r test-requirements.txt
 pip install -r requirements.txt

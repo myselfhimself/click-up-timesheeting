@@ -19,11 +19,17 @@ jobs:
     - name: Run tests
       run: |
         pip install -r requirements.txt
-        pip install pytest
-        # The tests create an artifact/ directory, which remains undeleted
+        pip install -r test-requirements.txt
+        # The tests create an artifact/ and artifact-cli/ directories, which remain undeleted
         # thanks to the KEEP_FILES_FOR_ARTIFACTS variable.
         KEEP_FILES_FOR_ARTIFACTS=1 py.test tests.py
-    - name: Archive test pdf/json/html files as Github artifacts
+    - name: Archive CLI test pdf/json/html files as Github artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: pdf-json-html-cli-outputs
+        path: artifacts-cli
+    - name: Archive main() test pdf/json/html files as Github artifacts
       if: always()
       uses: actions/upload-artifact@v3
       with:

@@ -78,8 +78,6 @@ def tupled_total_duration_human(undived_seconds):
 
 
 def fetch_user_teams(click_up_token):
-    import requests
-
     url = "https://api.clickup.com/api/v2/team"
 
     headers = {"Authorization": click_up_token}
@@ -93,7 +91,7 @@ def fetch_user_teams(click_up_token):
 def fetch_time_entries(
     click_up_token, click_up_team_id, from_date, to_date, current_tz
 ):
-    url = "https://api.clickup.com/api/v2/team/" + click_up_team_id + "/time_entries"
+    url = "https://api.clickup.com/api/v2/team/" + str(click_up_team_id) + "/time_entries"
 
     datetime_format = "%Y-%m-%d %H:%M:%S"
 
@@ -282,12 +280,12 @@ def get_time_entries(from_date, to_date):
     tasks = [
         {
             "name": v["name"],
-            "list": v["list"]["name"],
-            "project": v["project"]["name"],
-            "folder": v["folder"]["name"],
-            "total_duration_raw": v["total_duration_human"],
+            "list": v.get("list", {}).get("name"),
+            "project": v.get("project", {}).get("name"),
+            "folder": v.get("folder", {}).get("name"),
+            "total_duration_raw": v.get("total_duration_human", 0),
             "total_duration_human": formatted_total_duration_human(
-                v["total_duration_human"]
+                v.get("total_duration_human", 0)
             ),
         }
         for k, v in TASKS.items()
@@ -350,6 +348,8 @@ def render_time_entries_html(
         language = DEFAULT_LANGUAGE
 
     def jinja_render_date_str_with_babel(a_date, format="full"):
+        if not a_date:
+            return None
         date = dateutil.parser.parse(a_date)
         return format_date(date, format=format, locale=language)
 
