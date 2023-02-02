@@ -326,7 +326,7 @@ def test_main_output_from_mocked_api(
 
     # Here the task_id is omitted, but URL matching will work
     # See https://requests-mock.readthedocs.io/en/latest/matching.html#query-strings
-    requests_mock.get("https://api.clickup.com/api/v2/task/", json=DEFAULT_TASK_JSON)
+    requests_mock.get("https://api.clickup.com/api/v2/task/" + DEFAULT_TASK_ID, json=DEFAULT_TASK_JSON)
 
     kwargs = {
         "as_{}".format(output_format): True,

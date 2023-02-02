@@ -1,4 +1,4 @@
-![pytest ci status](https://github.com/myselfhimself/click-up-timesheeting/actions/workflows/ci.yml/badge.svg?branch=main)
+![coverage](docs/coverage.svg) ![pytest ci status](https://github.com/myselfhimself/click-up-timesheeting/actions/workflows/ci.yml/badge.svg?branch=master)
 
 Quick and dirty CLI script to give an overview of one's worked hours on Click-Up by project between two dates.
 
