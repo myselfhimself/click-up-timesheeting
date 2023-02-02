@@ -1,24 +1,30 @@
-import requests
-from babel.dates import format_date
+#!/usr/bin/env python
+# builtin modules
 import base64
-from datetime import datetime, timezone
-from dateutil import tz
-from dateutil.relativedelta import relativedelta
+from datetime import datetime
 import json
-import pytz
-from sys import argv
-from dotenv import load_dotenv
 import os
 import os.path
 import sys
+
+# contrib modules
+from babel.dates import format_date
+from dateutil import tz
+import dateutil.parser
+from dateutil.relativedelta import relativedelta
+from dotenv import load_dotenv
 import fire
 import gettext
-import dateutil.parser
+from jinja2 import Environment, FileSystemLoader
+import requests
 
+
+# Environment variables retrieval
 load_dotenv()
-
 CLICKUP_PK = os.getenv("CLICKUP_PK", False)
+CLICKUP_TEAM_ID = os.getenv("CLICKUP_TEAM_ID", False)
 
+# Global constants
 DEFAULT_MONTHS_BACKWARDS = 12
 DEFAULT_SUSTAINABLE_DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 DEFAULT_TIMEZONE = "Europe/Paris"
@@ -44,7 +50,7 @@ def fetch_task_general_data(task_id, click_up_token):
         return TASKS[task_id]
     url = "https://api.clickup.com/api/v2/task/" + task_id
 
-    query = {"custom_task_ids": "true", "team_id": "123", "include_subtasks": "true"}
+    query = {"custom_task_ids": "true", "include_subtasks": "true"}
 
     headers = {"Content-Type": "application/json", "Authorization": click_up_token}
 
@@ -71,19 +77,24 @@ def tupled_total_duration_human(undived_seconds):
     )
 
 
-def grab_time_entries(
-    from_date=None,
-    to_date=None,
-    click_up_token=None,
-    time_zone=DEFAULT_TIMEZONE,
-    language=DEFAULT_LANGUAGE,
+def fetch_user_teams(click_up_token):
+    import requests
+
+    url = "https://api.clickup.com/api/v2/team"
+
+    headers = {"Authorization": click_up_token}
+
+    response = requests.get(url, headers=headers)
+
+    data = response.json()
+    return data["teams"]
+
+
+def fetch_time_entries(
+    click_up_token, click_up_team_id, from_date, to_date, current_tz
 ):
-    """Populates TASKS and DAYS views from Click-Up's API between from_date and to_date using the click_up_token."""
+    url = "https://api.clickup.com/api/v2/team/" + click_up_team_id + "/time_entries"
 
-    team_id = "4711228"
-    url = "https://api.clickup.com/api/v2/team/" + team_id + "/time_entries"
-
-    current_tz = tz.gettz(time_zone)
     datetime_format = "%Y-%m-%d %H:%M:%S"
 
     if not to_date:
@@ -109,15 +120,6 @@ def grab_time_entries(
             )
     else:
         from_date += " 00:00:00"
-
-    if not click_up_token:
-        if CLICKUP_PK:
-            click_up_token = CLICKUP_PK
-        else:
-            print(
-                "Missing Click-Up token (pk_* value), set it in .env or through the appropriate command line parameter (see --help)."
-            )
-            sys.exit(1)
 
     print(
         "Gathering Click-Up time entries from {} to {}".format(
@@ -145,15 +147,6 @@ def grab_time_entries(
     query = {
         "start_date": str(int(from_date_ts)),
         "end_date": str(int(to_date_ts)),
-        #  "assignee": "0",
-        #  "include_task_tags": "true",
-        #  "include_location_names": "true",
-        #  "space_id": "0",
-        #  "folder_id": "0",
-        #  "list_id": "0",
-        #  "task_id": "0",
-        #  "custom_task_ids": "true",
-        #  "team_id": "123"
     }
 
     headers = {"Content-Type": "application/json", "Authorization": click_up_token}
@@ -161,11 +154,71 @@ def grab_time_entries(
     response = requests.get(url, headers=headers, params=query)
 
     data = response.json()
+    return data["data"]
+
+
+def grab_time_entries(
+    from_date=None,
+    to_date=None,
+    click_up_token=None,
+    click_up_team_id=None,
+    time_zone=DEFAULT_TIMEZONE,
+    language=DEFAULT_LANGUAGE,
+):
+    """Populates TASKS and DAYS views from Click-Up's API between from_date and to_date using the click_up_token and click_up_team_id."""
+    # API token is compulsory
+    if not click_up_token:
+        if CLICKUP_PK:
+            click_up_token = CLICKUP_PK
+        else:
+            print(
+                "Missing Click-Up REST API token (pk_* value), set it in .env or through the --click-up-token command line parameter (see --help)."
+            )
+            sys.exit(1)
+
+    # team_id can be provided or will be guessed from https://clickup.com/api/clickupreference/operation/GetAuthorizedTeams/
+    if not click_up_team_id:
+        if CLICKUP_TEAM_ID:
+            print("Using CLICKUP_TEAM_ID from environment.")
+            click_up_token = CLICKUP_TEAM_ID
+        else:
+            user_teams = fetch_user_teams(click_up_token=click_up_token)
+            if not user_teams:
+                print(
+                    "Missing Click-Up team parameter (--click-up-team-id or CLICKUP_TEAM_ID environment variable) not found and user for given Click-Up user API key has no teams. Giving up."
+                )
+                exit(1)
+            elif len(user_teams) > 1:
+                user_teams_overview = [
+                    {"id": team["id"], "name": team["name"]} for team in user_teams
+                ]
+                print(
+                    "Missing Click-Up team parameter (--click-up-team-id or CLICKUP_TEAM_ID environment variable) not found and user for given Click-Up user API key has several teams to choose from: {}. Giving up.".format(
+                        user_teams_overview
+                    )
+                )
+            else:
+                click_up_team_id = user_teams[0]["id"]
+                print(
+                    "Guessing team_id as user's only assigned team: {} ({}).".format(
+                        user_teams[0]["name"], click_up_team_id
+                    )
+                )
+
+    current_tz = tz.gettz(time_zone)
+
+    data = fetch_time_entries(
+        click_up_token=click_up_token,
+        click_up_team_id=click_up_team_id,
+        from_date=from_date,
+        to_date=to_date,
+        current_tz=current_tz,
+    )
 
     undived_total_seconds = 0
 
     # Browse each time entry within dates range
-    for d in data["data"]:
+    for d in data:
         # Convert microseconds time entry duration to hours, minutes, seconds
         duration_seconds = int(d["duration"]) / 1000
         undived_total_seconds += duration_seconds
@@ -286,8 +339,6 @@ def render_time_entries_html(
     customer_name=None,
     consultant_name=None,
 ):
-    from jinja2 import Environment, FileSystemLoader
-
     company_logo_base64 = None
     if company_logo:
         with open(company_logo, "rb") as logo_fp:
@@ -346,7 +397,8 @@ def render_pdf(html_content, pdf_output_path=DEFAULT_PDF_OUTPUT_PATH):
 def main(
     from_date=None,
     to_date=None,
-    click_up_token=None,
+    click_up_token=CLICKUP_PK,
+    click_up_team_id=CLICKUP_TEAM_ID,
     time_zone=DEFAULT_TIMEZONE,
     from_json=False,
     json_input_path=None,
@@ -389,7 +441,12 @@ def main(
     else:
         # Grab time entries from Click-Up's online API
         grab_time_entries(
-            from_date, to_date, click_up_token, time_zone=time_zone, language=language
+            from_date=from_date,
+            to_date=to_date,
+            click_up_token=click_up_token,
+            click_up_team_id=click_up_team_id,
+            time_zone=time_zone,
+            language=language,
         )
 
         # Make a nice consolidated dictionary ready for all forms of template rendering

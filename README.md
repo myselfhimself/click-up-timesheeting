@@ -2,13 +2,36 @@
 
 Quick and dirty CLI script to give an overview of one's worked hours on Click-Up by project between two dates.
 
+Requests to the Click-Up REST V2 API are made for you using your Click-Up team_id and [Click-Up `pk_*` API key (called token here)](https://clickup.com/api/developer-portal/trytheapi/#step-1-enter-your-api-key).
+
 This comes in handy for invoicing your customer.
 
 Possible outputs are: JSON, HTML, PDF.
 
 ## Technological stack
 
-This Python 3.x project leverages [WeasyPrint](https://weasyprint.org/) for PDF rendering, the [Click-Up](https://clickup.com/) REST API to get time tracking info using your API token, [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) for HTML-templating and [Babel](https://babel.pocoo.org/en/latest/index.html)/[gettext](https://python.readthedocs.io/en/latest/library/gettext.html) for translation.
+This Python 3.x project leverages:
+- [WeasyPrint](https://weasyprint.org/) for PDF rendering,
+- the [Click-Up](https://clickup.com/) REST API to get time tracking info using your API token,
+- [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) for HTML-templating,
+- [Babel](https://babel.pocoo.org/en/latest/index.html)/[gettext](https://python.readthedocs.io/en/latest/library/gettext.html) for translation.
+
+## Usage
+
+The command works with a compulsory `--click-up-token` parameter and optional `--click-up-team-id` parameter, which you can provide as `CLICKUP_PK` and `CLICKUP_TEAM_ID` environment variables (or within a `.env` file, mimicking provided `.env.tpl`).
+
+If the team ID (a digits value) is absent, it will be guessed from the user's teams as returned by the related Click-Up API endpoint. If that user has several teams, those are printed before exiting.
+
+```
+pip install -r requirements.txt
+python click-up-timereport.py --click-up-token='pk_MY API KEY' [--click-up-team-id='MY_DIGITS_TEAMID']
+```
+
+See the `--help` or examples/quickstart sections below for more information.
+
+```
+python click-up-timereport.py --help
+```
 
 ## Examples
 
@@ -19,7 +42,8 @@ See the `examples/` directory for sample JSON, HTML and PDF files using the temp
 - [Example HTML report](examples/example1.html)
 - [Example PDF report](examples/example1.pdf)
 
-A little preview
+A little preview:
+
 ![Report overview](examples/report_overview.png)
 
 ## Quickstart
@@ -60,7 +84,7 @@ A little preview
 
     ``python click-up-timereport.py --from_date=2022-11-01 --to_date=2022-11-30 # with times from 00:00:00 to 23:59:59``
 
-    ``python click-up-timereport.py --from_date=2022-11-01 --to_date=2022-11-30 --click_up_token=pk_SOMETHING # with token provided on CLI instead of .env``
+    ``python click-up-timereport.py --from_date=2022-11-01 --to_date=2022-11-30 --click_up_token=pk_SOMETHING --click_up_team_id=123DIGITSONLY45 # with Click-Up API token and team_id provided on CLI instead of .env``
 
 ## Input format
 ### JSON
@@ -127,19 +151,18 @@ pybabel compile --domain=messages --directory=locale --use-fuzzy
 ```
 
 ## Running tests
-You need to install pytest first:
+You need to install `pytest` and `requests-mock` first using a test-oriented requirements file:
 ```
-pip install pytest
+pip install -r test-requirements.txt
 pip install -r requirements.txt
 py.test tests.py
 ```
 
-An 'artifacts/' directory gets created in pytest's current working directory, for generating sample JSON/PDF/HTML files
+An `artifacts/` directory gets created in pytest's current working directory, for generating sample JSON/PDF/HTML files
 
 To keep it, set the `KEEP_FILES_FOR_ARTIFACTS` environment variable to anything.
 
 Head over to the [Actions tab](https://github.com/myselfhimself/click-up-timesheeting/actions) to understand how those tests work.
-```
 
 
 ## License
