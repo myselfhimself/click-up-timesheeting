@@ -1,5 +1,5 @@
 tests:
-	KEEP_FILES_FOR_ARTIFACTS=1 coverage run -m pytest tests.py -vvv
+	coverage run -m pytest tests.py -vvv
 	coverage report -m
 	coverage html
 	coverage-badge -f -o docs/coverage.svg

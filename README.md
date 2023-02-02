@@ -159,9 +159,7 @@ pip install -r requirements.txt
 py.test tests.py
 ```
 
-An `artifacts/` directory gets created in pytest's current working directory, for generating sample JSON/PDF/HTML files
-
-To keep it, set the `KEEP_FILES_FOR_ARTIFACTS` environment variable to anything.
+Both an `artifacts/` and `artifacts-cli/` directories get created in pytest's current working directory, for generating sample JSON/PDF/HTML files.
 
 Head over to the [Actions tab](https://github.com/myselfhimself/click-up-timesheeting/actions) to understand how those tests work.
 

@@ -1,15 +1,18 @@
 # builtin modules
+import builtins
 from copy import copy
+import json
 import os
 import os.path
 from pathlib import Path
-import shutil
 import subprocess
+import sys
 import uuid
 
 # third-party modules
 import pytest
 from dateutil import tz
+import html5lib  # provided by weasyprint
 from slugify import slugify
 
 click_up_timereport = __import__("click-up-timereport")
@@ -179,9 +182,7 @@ def get_output_filename_from_locals(input_vars, output_format, for_cli=False):
 
 
 def test_fetch_task_general_data(requests_mock):
-    requests_mock.get(
-        "https://api.clickup.com/api/v2/task/" + DEFAULT_TASK_ID, json=DEFAULT_TASK_JSON
-    )
+    setup_requests_mock(requests_mock, task=True)
 
     result = click_up_timereport.fetch_task_general_data(
         DEFAULT_TASK_ID, DEFAULT_CLICKUP_TOKEN
@@ -191,10 +192,7 @@ def test_fetch_task_general_data(requests_mock):
 
 
 def test_fetch_time_entries(requests_mock):
-    requests_mock.get(
-        "https://api.clickup.com/api/v2/team/" + DEFAULT_TEAM_ID + "/time_entries",
-        json=DEFAULT_TIME_ENTRIES_JSON,
-    )
+    setup_requests_mock(requests_mock, entries=True)
 
     result = click_up_timereport.fetch_time_entries(
         **{
@@ -209,25 +207,115 @@ def test_fetch_time_entries(requests_mock):
 
 
 def test_fetch_user_teams(requests_mock):
-    requests_mock.get(
-        "https://api.clickup.com/api/v2/team", json=DEFAULT_USER_TEAMS_JSON
-    )
+    setup_requests_mock(requests_mock, team=True)
 
     result = click_up_timereport.fetch_user_teams(DEFAULT_CLICKUP_TOKEN)
     assert result[0]["id"] == DEFAULT_TEAM_ID
 
 
-@pytest.mark.parametrize("click_up_team_id", [DEFAULT_TEAM_ID, None])
+@pytest.mark.parametrize("import_success", [True, False])
+def test_render_pdf(monkeypatch, import_success):
+    # Monkeypatching code inspired by http://materials-scientist.com/blog/2021/02/11/mocking-failing-module-import-python/
+    real_import = builtins.__import__
+
+    def monkey_import_notfound(name, globals=None, locals=None, fromlist=(), level=0):
+        if name in ("weasyprint",):
+            raise ModuleNotFoundError(f"Mocked module not found {name}")
+        return real_import(
+            name, globals=globals, locals=locals, fromlist=fromlist, level=level
+        )
+
+    with open("examples/example1.html", "r") as fp:
+        html_content = fp.read()
+    temp_pdf_path = "/tmp/abc.fr"
+    if not import_success:
+        with monkeypatch.context() as m:
+            m.delitem(sys.modules, "weasyprint", raising=False)
+            m.setattr(builtins, "__import__", monkey_import_notfound)
+            with pytest.raises(SystemExit):
+                click_up_timereport.render_pdf(
+                    html_content, pdf_output_path=temp_pdf_path
+                )
+    else:
+        click_up_timereport.render_pdf(html_content, pdf_output_path=temp_pdf_path)
+        os.unlink(temp_pdf_path)
+
+
+def test_render_time_entries_html():
+    with open("examples/example1.json", "r") as fp:
+        time_entries = json.loads(fp.read())
+    html_str = click_up_timereport.render_time_entries_html(
+        time_entries
+    )  # calling with almost only default parameters
+    html5parser = html5lib.HTMLParser(strict=True)
+    html5parser.parse(html_str)
+
+
+@pytest.mark.parametrize("missing_pk_env", [True, False])
+@pytest.mark.parametrize("missing_team_id_env", [True, False])
+def test_grab_time_entries(
+    monkeypatch, missing_pk_env, missing_team_id_env, requests_mock
+):
+    with monkeypatch.context() as m:
+        m.setattr("click-up-timereport.CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
+        m.setattr("click-up-timereport.CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
+        setup_requests_mock(requests_mock, all=True)
+
+        if missing_pk_env:
+            m.setattr("click-up-timereport.CLICKUP_PK", None)
+        else:
+            m.setattr("click-up-timereport.CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
+
+        if missing_team_id_env:
+            m.setattr("click-up-timereport.CLICKUP_TEAM_ID", None)
+        else:
+            m.setattr("click-up-timereport.CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
+
+        if missing_pk_env:
+            with pytest.raises(SystemExit) as e:
+                click_up_timereport.grab_time_entries()
+        else:
+            click_up_timereport.grab_time_entries()
+
+
+def setup_requests_mock(
+    requests_mock, team=False, entries=False, task=False, all=False
+):
+    if all:
+        team = entries = task = True
+    if team:
+        requests_mock.get(
+            "https://api.clickup.com/api/v2/team", json=DEFAULT_USER_TEAMS_JSON
+        )
+
+    if entries:
+        requests_mock.get(
+            "https://api.clickup.com/api/v2/team/" + DEFAULT_TEAM_ID + "/time_entries",
+            json=DEFAULT_TIME_ENTRIES_JSON,
+        )
+
+    if task:
+        # Here the task_id is omitted, but URL matching will work
+        # See https://requests-mock.readthedocs.io/en/latest/matching.html#query-strings
+        requests_mock.get(
+            "https://api.clickup.com/api/v2/task/" + DEFAULT_TASK_ID,
+            json=DEFAULT_TASK_JSON,
+        )
+
+
+@pytest.mark.parametrize("click_up_team_id", [DEFAULT_TEAM_ID]) # single value for speed
+@pytest.mark.parametrize("missing_input_json_path", [True, False, "broken"])
 @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
 @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
 @pytest.mark.parametrize("output_format", ["json", "pdf", "html"])
 @pytest.mark.parametrize("output_title", ["Some title", False])
-@pytest.mark.parametrize("company_logo", ["templates/company-logo.png", False])
+@pytest.mark.parametrize("company_logo", ["templates/company-logo.png", None])
 @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
 @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
 @pytest.mark.parametrize("language", ["french", "english", False])
 def test_cli_output_from_input_json(
     click_up_team_id,
+    missing_input_json_path,
     from_date,
     to_date,
     output_format,
@@ -248,12 +336,18 @@ def test_cli_output_from_input_json(
         "python",
         EXECUTABLE_UNDER_TEST,
         "--from-json",
-        "--json-input-path",
-        DEFAULT_INPUT_JSON_PATH,
         "--as-{}".format(output_format),
         "--{}-output-path".format(output_format),
         output_test_file_path,
     ]
+
+    broken_input_json_path = "/tmp/broken.json"
+    if missing_input_json_path == "broken":
+        with open(broken_input_json_path, "w+") as fp:
+            fp.write("{}")  # JSON with required keys missing
+        command_line_list += ["--json-input-path", broken_input_json_path]
+    elif not missing_input_json_path:
+        command_line_list += ["--json-input-path", DEFAULT_INPUT_JSON_PATH]
 
     if click_up_team_id:
         command_line_list += ["--click-up-team-id", click_up_team_id]
@@ -280,11 +374,14 @@ def test_cli_output_from_input_json(
         command_line_list += ["--language", language]
 
     result = subprocess.run(command_line_list)
-    assert result.returncode == 0
-    assert Path(output_test_file_path).resolve().is_file()
-    assert os.path.getsize(output_test_file_path) > 1000
-    if not os.environ.get("KEEP_FILES_FOR_ARTIFACTS"):
-        shutil.rmtree(ARTIFACTS_DIRECTORY_CLI, ignore_errors=True)
+    if missing_input_json_path is True or missing_input_json_path == "broken":
+        assert result.returncode > 0
+        if missing_input_json_path == "broken":
+            os.unlink(broken_input_json_path)
+    else:
+        assert result.returncode == 0
+        assert Path(output_test_file_path).resolve().is_file()
+        assert os.path.getsize(output_test_file_path) > 1000
 
 
 @pytest.mark.parametrize("click_up_token", [DEFAULT_CLICKUP_TOKEN, "set_env", None])
@@ -292,8 +389,11 @@ def test_cli_output_from_input_json(
 @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
 @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
 @pytest.mark.parametrize("output_format", ["json", "pdf", "html"])
+@pytest.mark.parametrize("provide_output_path", [True, False])
 @pytest.mark.parametrize("output_title", ["Some title", False])
-@pytest.mark.parametrize("company_logo", ["templates/company-logo.png", False])
+@pytest.mark.parametrize(
+    "company_logo", ["templates/company-logo.png", "notexists", None]
+)
 @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
 @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
 @pytest.mark.parametrize("language", ["french", "english", False])
@@ -304,41 +404,34 @@ def test_main_output_from_mocked_api(
     from_date,
     to_date,
     output_format,
+    provide_output_path,
     output_title,
     company_logo,
     customer_name,
     consultant_name,
     language,
-    monkeypatch
+    monkeypatch,
 ):
     input_vars = locals()
-    output_test_file_path = get_output_filename_from_locals(
-        input_vars, output_format, for_cli=False
-    )
 
     if click_up_token == "set_env":
         monkeypatch.setenv("CLICKUP_PK", DEFAULT_CLICKUP_TOKEN, prepend=False)
 
     os.makedirs(ARTIFACTS_DIRECTORY, exist_ok=True)
 
-    requests_mock.get(
-        "https://api.clickup.com/api/v2/team", json=DEFAULT_USER_TEAMS_JSON
-    )
-
-    requests_mock.get(
-        "https://api.clickup.com/api/v2/team/" + DEFAULT_TEAM_ID + "/time_entries",
-        json=DEFAULT_TIME_ENTRIES_JSON,
-    )
-
-    # Here the task_id is omitted, but URL matching will work
-    # See https://requests-mock.readthedocs.io/en/latest/matching.html#query-strings
-    requests_mock.get("https://api.clickup.com/api/v2/task/" + DEFAULT_TASK_ID, json=DEFAULT_TASK_JSON)
+    setup_requests_mock(requests_mock, all=True)
 
     kwargs = {
-        "as_{}".format(output_format): True,
-        "{}_output_path".format(output_format): output_test_file_path,
         "click_up_token": DEFAULT_CLICKUP_TOKEN,
     }
+
+    if output_format:
+        output_test_file_path = get_output_filename_from_locals(
+            input_vars, output_format, for_cli=False
+        )
+        kwargs["as_{}".format(output_format)] = True
+        if provide_output_path:
+            kwargs["{}_output_path".format(output_format)] = output_test_file_path
 
     if click_up_token != "set_env":
         kwargs["click_up_token"] = click_up_token
@@ -367,8 +460,13 @@ def test_main_output_from_mocked_api(
     if language:
         kwargs["language"] = language
 
-    click_up_timereport.main(**kwargs)
-    assert Path(output_test_file_path).resolve().is_file()
-    assert os.path.getsize(output_test_file_path) > 500
-    if not os.environ.get("KEEP_FILES_FOR_ARTIFACTS"):
-        shutil.rmtree(ARTIFACTS_DIRECTORY, ignore_errors=True)
+    if (
+        not click_up_token and not os.environ.get("CLICKUP_PK")
+    ) or company_logo == "notexists":
+        with pytest.raises(SystemExit) as e:
+            click_up_timereport.main(**kwargs)
+    else:
+        click_up_timereport.main(**kwargs)
+        if output_format:
+            assert Path(output_test_file_path).resolve().is_file()
+            assert os.path.getsize(output_test_file_path) > 500

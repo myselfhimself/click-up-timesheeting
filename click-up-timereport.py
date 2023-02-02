@@ -171,7 +171,7 @@ def grab_time_entries(
     if not click_up_team_id:
         if CLICKUP_TEAM_ID:
             print("Using CLICKUP_TEAM_ID from environment.")
-            click_up_token = CLICKUP_TEAM_ID
+            click_up_team_id = CLICKUP_TEAM_ID
         else:
             user_teams = fetch_user_teams(click_up_token=click_up_token)
             if not user_teams:
@@ -378,7 +378,7 @@ def render_time_entries_html(
 def render_pdf(html_content, pdf_output_path=DEFAULT_PDF_OUTPUT_PATH):
     try:
         from weasyprint import HTML
-    except ImportError:
+    except ModuleNotFoundError:
         print(
             "The --as-pdf and --pdf-output-path options required the Python weasyprint module to be installed."
         )
