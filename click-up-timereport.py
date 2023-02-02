@@ -101,21 +101,14 @@ def fetch_time_entries(
         to_date += " 23:59:59"
 
     if not from_date:
-        if not to_date:
-            from_date = (
-                datetime.today()
-                .replace(day=1, hour=0, minute=0, second=0, tzinfo=current_tz)
-                .strftime(datetime_format)
+        from_date = (
+            (
+                datetime.strptime(to_date, datetime_format)
+                - relativedelta(months=DEFAULT_MONTHS_BACKWARDS)
             )
-        else:
-            from_date = (
-                (
-                    datetime.strptime(to_date, datetime_format)
-                    - relativedelta(months=DEFAULT_MONTHS_BACKWARDS)
-                )
-                .replace(tzinfo=current_tz)
-                .strftime(datetime_format)
-            )
+            .replace(tzinfo=current_tz)
+            .strftime(datetime_format)
+        )
     else:
         from_date += " 00:00:00"
 

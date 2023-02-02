@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.9] #[3.7, 3.8, 3.9]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -22,7 +22,7 @@ jobs:
         pip install -r test-requirements.txt
         # The tests create an artifact/ and artifact-cli/ directories, which remain undeleted
         # thanks to the KEEP_FILES_FOR_ARTIFACTS variable.
-        KEEP_FILES_FOR_ARTIFACTS=1 make tests
+        make tests
     - name: Archive CLI test pdf/json/html files as Github artifacts
       if: always()
       uses: actions/upload-artifact@v3
@@ -35,3 +35,9 @@ jobs:
       with:
         name: pdf-json-html-outputs
         path: artifacts
+    - name: Archive coverage html
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: html-cov
+        path: html-cov

@@ -287,6 +287,7 @@ def test_cli_output_from_input_json(
         shutil.rmtree(ARTIFACTS_DIRECTORY_CLI, ignore_errors=True)
 
 
+@pytest.mark.parametrize("click_up_token", [DEFAULT_CLICKUP_TOKEN, "set_env", None])
 @pytest.mark.parametrize("click_up_team_id", [DEFAULT_TEAM_ID, None])
 @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
 @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
@@ -298,6 +299,7 @@ def test_cli_output_from_input_json(
 @pytest.mark.parametrize("language", ["french", "english", False])
 def test_main_output_from_mocked_api(
     requests_mock,
+    click_up_token,
     click_up_team_id,
     from_date,
     to_date,
@@ -307,11 +309,15 @@ def test_main_output_from_mocked_api(
     customer_name,
     consultant_name,
     language,
+    monkeypatch
 ):
     input_vars = locals()
     output_test_file_path = get_output_filename_from_locals(
         input_vars, output_format, for_cli=False
     )
+
+    if click_up_token == "set_env":
+        monkeypatch.setenv("CLICKUP_PK", DEFAULT_CLICKUP_TOKEN, prepend=False)
 
     os.makedirs(ARTIFACTS_DIRECTORY, exist_ok=True)
 
@@ -333,6 +339,9 @@ def test_main_output_from_mocked_api(
         "{}_output_path".format(output_format): output_test_file_path,
         "click_up_token": DEFAULT_CLICKUP_TOKEN,
     }
+
+    if click_up_token != "set_env":
+        kwargs["click_up_token"] = click_up_token
 
     if click_up_team_id:
         kwargs["click_up_team_id"] = click_up_team_id
