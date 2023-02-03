@@ -383,6 +383,8 @@ def test_cli_output_from_input_json(
     company_logo,
     customer_name,
     consultant_name,
+    customer_signature_field,
+    consultant_signature_field,
     language,
 ):
     os.makedirs(ARTIFACTS_DIRECTORY_CLI, exist_ok=True)
@@ -429,6 +431,12 @@ def test_cli_output_from_input_json(
 
     if consultant_name:
         command_line_list += ["--consultant-name", consultant_name]
+    
+    if customer_signature_field:
+        command_line_list += ["--customer-signature-field", customer_signature_field]
+    
+    if consultant_signature_field:
+        command_line_list += ["--consultant-signature-field", consultant_signature_field]
 
     if language:
         command_line_list += ["--language", language]
