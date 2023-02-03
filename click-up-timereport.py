@@ -188,6 +188,7 @@ def grab_time_entries(
                         user_teams_overview
                     )
                 )
+                exit(1)
             else:
                 click_up_team_id = user_teams[0]["id"]
                 print(

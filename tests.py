@@ -13,6 +13,7 @@ import uuid
 import pytest
 from dateutil import tz
 import html5lib  # provided by weasyprint
+import requests_mock as req_mock
 from slugify import slugify
 
 click_up_timereport = __import__("click-up-timereport")
@@ -24,6 +25,9 @@ click_up_timereport = __import__("click-up-timereport")
 EXECUTABLE_UNDER_TEST = "click-up-timereport.py"
 ARTIFACTS_DIRECTORY = "artifacts"  # no trailing slash
 ARTIFACTS_DIRECTORY_CLI = "artifacts-cli"  # no trailing slash
+DEFAULT_TEAM_API_URL = "https://api.clickup.com/api/v2/team"
+DEFAULT_TIME_ENTRIES_API_URL = "https://api.clickup.com/api/v2/team/{}/time_entries"
+DEFAULT_TASK_API_URL = "https://api.clickup.com/api/v2/task/{}"
 DEFAULT_TEAM_ID = "1234"
 DEFAULT_CLICKUP_TOKEN = "anytoken"
 DEFAULT_INPUT_JSON_PATH = "examples/example1.json"
@@ -165,6 +169,43 @@ DEFAULT_USER_TEAMS_JSON = {
         }
     ]
 }
+DEFAULT_USER_TEAMS_EMPTY_JSON = {"teams": []}
+DEFAULT_USER_TEAMS_MULTIPLE_JSON = {
+    "teams": [
+        {
+            "id": "1234",
+            "name": "My ClickUp Workspace",
+            "color": "#000000",
+            "avatar": "https://clickup.com/avatar.jpg",
+            "members": [
+                {
+                    "user": {
+                        "id": 123,
+                        "username": "John Doe",
+                        "color": "#000000",
+                        "profilePicture": "https://clickup.com/avatar.jpg",
+                    }
+                }
+            ],
+        },
+        {
+            "id": "1235",
+            "name": "My ClickUp Workspace 2",
+            "color": "#000000",
+            "avatar": "https://clickup.com/avatar.jpg",
+            "members": [
+                {
+                    "user": {
+                        "id": 123,
+                        "username": "John Doe",
+                        "color": "#000000",
+                        "profilePicture": "https://clickup.com/avatar.jpg",
+                    }
+                }
+            ],
+        },
+    ]
+}
 
 
 def get_output_filename_from_locals(input_vars, output_format, for_cli=False):
@@ -221,9 +262,9 @@ def test_render_pdf(monkeypatch, import_success):
     def monkey_import_notfound(name, globals=None, locals=None, fromlist=(), level=0):
         if name in ("weasyprint",):
             raise ModuleNotFoundError(f"Mocked module not found {name}")
-        #return real_import(
+        # return real_import(
         #    name, globals=globals, locals=locals, fromlist=fromlist, level=level
-        #)
+        # )
 
     with open("examples/example1.html", "r") as fp:
         html_content = fp.read()
@@ -253,8 +294,9 @@ def test_render_time_entries_html():
 
 @pytest.mark.parametrize("missing_pk_env", [True, False])
 @pytest.mark.parametrize("missing_team_id_env", [True, False])
+@pytest.mark.parametrize("teams_found", [0, 1, 2])
 def test_grab_time_entries(
-    monkeypatch, missing_pk_env, missing_team_id_env, requests_mock
+    monkeypatch, missing_pk_env, missing_team_id_env, teams_found, requests_mock
 ):
     with monkeypatch.context() as m:
         m.setattr("click-up-timereport.CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
@@ -275,6 +317,22 @@ def test_grab_time_entries(
             with pytest.raises(SystemExit) as e:
                 click_up_timereport.grab_time_entries()
         else:
+            if missing_team_id_env:
+                with req_mock.Mocker() as mocker:
+                    if teams_found == 0:
+                        mocker.get(
+                            DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_EMPTY_JSON
+                        )
+                        with pytest.raises(SystemExit) as e:
+                            click_up_timereport.grab_time_entries()
+                    elif teams_found == 1:
+                        mocker.get(DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_JSON)
+                    elif teams_found > 1:
+                        mocker.get(
+                            DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_MULTIPLE_JSON
+                        )
+                        with pytest.raises(SystemExit) as e:
+                            click_up_timereport.grab_time_entries()
             click_up_timereport.grab_time_entries()
 
 
@@ -284,13 +342,11 @@ def setup_requests_mock(
     if all:
         team = entries = task = True
     if team:
-        requests_mock.get(
-            "https://api.clickup.com/api/v2/team", json=DEFAULT_USER_TEAMS_JSON
-        )
+        requests_mock.get(DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_JSON)
 
     if entries:
         requests_mock.get(
-            "https://api.clickup.com/api/v2/team/" + DEFAULT_TEAM_ID + "/time_entries",
+            DEFAULT_TIME_ENTRIES_API_URL.format(DEFAULT_TEAM_ID),
             json=DEFAULT_TIME_ENTRIES_JSON,
         )
 
@@ -298,12 +354,14 @@ def setup_requests_mock(
         # Here the task_id is omitted, but URL matching will work
         # See https://requests-mock.readthedocs.io/en/latest/matching.html#query-strings
         requests_mock.get(
-            "https://api.clickup.com/api/v2/task/" + DEFAULT_TASK_ID,
+            DEFAULT_TASK_API_URL.format(DEFAULT_TASK_ID),
             json=DEFAULT_TASK_JSON,
         )
 
 
-@pytest.mark.parametrize("click_up_team_id", [DEFAULT_TEAM_ID]) # single value for speed
+@pytest.mark.parametrize(
+    "click_up_team_id", [DEFAULT_TEAM_ID]
+)  # single value for speed
 @pytest.mark.parametrize("missing_input_json_path", [True, False, "broken"])
 @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
 @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
