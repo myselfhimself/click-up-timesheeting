@@ -144,6 +144,12 @@ Add `--customer-name=<name of customer company or person>`.
 ### Consultant name
 Add `--consultant-name=<name of consultant>`.
 
+## Customer signature field
+Add `--customer-signature-field` to show a customer signature field at the page's bottom.
+
+## Consultant signature field
+Add `--consultant-signature-field` to show a consultant signature field at the page's bottom.
+
 ## i18n tips
 
 Translations `.po` files in `locale/` were created by hand and compiled to `.mo` with the following command:

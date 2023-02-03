@@ -91,7 +91,9 @@ def fetch_user_teams(click_up_token):
 def fetch_time_entries(
     click_up_token, click_up_team_id, from_date, to_date, current_tz
 ):
-    url = "https://api.clickup.com/api/v2/team/" + str(click_up_team_id) + "/time_entries"
+    url = (
+        "https://api.clickup.com/api/v2/team/" + str(click_up_team_id) + "/time_entries"
+    )
 
     datetime_format = "%Y-%m-%d %H:%M:%S"
 
@@ -330,6 +332,8 @@ def render_time_entries_html(
     company_logo=None,
     customer_name=None,
     consultant_name=None,
+    customer_signature_field=None,
+    consultant_signature_field=None,
 ):
     company_logo_base64 = None
     if company_logo:
@@ -366,10 +370,13 @@ def render_time_entries_html(
     content = template.render(
         {
             "document_title": title,
+            "html_lang": ("fr" if language.startswith("fr") else "en"),
             "customer_name": customer_name,
             "consultant_name": consultant_name,
             "time_entries": time_entries,
             "base64_company_logo": company_logo_base64,
+            "customer_signature_field": customer_signature_field,
+            "consultant_signature_field": consultant_signature_field,
         },
         presentational_hints=True,
     )
@@ -407,6 +414,8 @@ def main(
     company_logo_img_path=None,
     customer_name=None,
     consultant_name=None,
+    customer_signature_field=False,
+    consultant_signature_field=False,
 ):
     language = (
         "fr_FR"
@@ -468,6 +477,8 @@ def main(
         company_logo=company_logo_img_path,
         customer_name=customer_name,
         consultant_name=consultant_name,
+        customer_signature_field=customer_signature_field,
+        consultant_signature_field=consultant_signature_field,
     )
 
     # HTML output

@@ -370,6 +370,8 @@ def setup_requests_mock(
 @pytest.mark.parametrize("company_logo", ["templates/company-logo.png", None])
 @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
 @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
+@pytest.mark.parametrize("customer_signature_field", [True, False])
+@pytest.mark.parametrize("consultant_signature_field", [True, False])
 @pytest.mark.parametrize("language", ["french", "english", False])
 def test_cli_output_from_input_json(
     click_up_team_id,

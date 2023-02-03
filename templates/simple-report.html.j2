@@ -1,18 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>{{ document_title }}</title>
-  <style>
+<html lang="{{ html_lang }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta keywords="click-up timesheet report" />
+    <meta description="Report for worked hours based on Click-Up data." />
+    <title>{{ document_title }}</title>
+    <style>
     @page {
       size: A4 portrait;
     }
 
     img.company-logo {
       width: 200px;
+    }
+
+    h3.date-boundaries {
+      display: flex;
+      justify-content: left;
+    }
+
+    h3.date-boundaries > span {
+      margin-right: 0.5em;
     }
 
     .days th,
@@ -51,72 +60,88 @@
     div.tasks {
       margin-bottom: 3em;
     }
-  </style>
-</head>
-
-<body>
-  {% if base64_company_logo %}
-  <img class="company-logo" src="{{ base64_company_logo }}" alt="company logo" />
-  {% endif %}
-
-  <h1>{{ _("Timesheet") }}</h1>
-
-  {% if customer_name %}
-  <h3>{{ _("Services for:") }} {{customer_name}}</h3>
-  {% endif %}
-
-  {% if consultant_name %}
-  <h3>{{ _("Consultant:") }} {{consultant_name}}</h3>
-  {% endif %}
-
-  <h3>{{ _("From:") }} {{ str_to_date(time_entries.from_date, "short") }} {{ _("To:") }} {{
-    str_to_date(time_entries.to_date, "short") }}</h3>
-
-  <div class="days">
-    <table>
-      <tr>
-        <th>{{ _("Date") }}</th>
-        <th>{{ _("Duration") }}</th>
-      </tr>
-      {% for day_entry in time_entries.days %}
-      <tr>
-        <td class="date">{{ str_to_date(day_entry.iso_date, "full") }}</td>
-        <td>{{ '%02d' | format(day_entry.total_duration_raw[0]|int) }}:{{ '%02d' |
-          format(day_entry.total_duration_raw[1]|int) }}:{{ '%02d' | format(day_entry.total_duration_raw[2]|int) }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-
-  <div class="tasks">
-    <table>
-      <tr>
-        <th>{{ _("Task") }}</th>
-        <th>{{ _("List") }}</th>
-        <th>{{ _("Folder") }}</th>
-        <th>{{ _("Project") }}</th>
-        <th>{{ _("Duration") }}</th>
-      </tr>
-      {% for task in time_entries.tasks %}
-      <tr>
-        <td>{{ task.name }}</td>
-        <td>{{ task.list }}</td>
-        <td>{{ task.folder }}</td>
-        <td>{{ task.project }}</td>
-        {# <td>{{ task.total_duration_human }}</td> #}
-        <td>{{ '%02d' | format(task.total_duration_raw[0]|int) }}:{{ '%02d' |
-          format(task.total_duration_raw[1]|int) }}:{{ '%02d' | format(task.total_duration_raw[2]|int) }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-
-  <div class="summary">
-    <p>{{_("Total duration:")}} {{ time_entries.total_duration.hours | int }} {{ _("hours") }} {{
-      time_entries.total_duration.minutes | int
-      }}
-      {{ _("minutes") }}</p>
-  </div>
-</body>
-
+    div.signature {
+      display: flex;
+      justify-content: space-evenly;
+      margin-bottom: 5em;
+    }
+    </style>
+  </head>
+  <body>
+    {% if base64_company_logo %}<img class="company-logo"
+     src="{{ base64_company_logo }}"
+     alt="company logo"/>{% endif %}
+    <h1>{{ document_title }}</h1>
+    {% if time_entries.from_date or entries.to_date %}
+      <h3 class="date-boundaries">
+        {% if time_entries.from_date %}
+          <span class="from-date">{{ _("From:") }} {{ str_to_date(time_entries.from_date, "short") }}</span>
+        {% endif %}
+        {% if time_entries.to_date %}
+          <span class="to-date">{{ _("To:")|lower if time_entries.from_date else _("To:") }} {{ str_to_date(time_entries.to_date, "short") }}</span>
+        {% endif %}
+      </h3>
+    {% endif %}
+    {% if customer_name %}<p>{{ _("Services for:") }} {{ customer_name }}</p>{% endif %}
+    {% if consultant_name %}<p>{{ _("Consultant:") }} {{ consultant_name }}</p>{% endif %}
+    <div class="days">
+      <table>
+        <tr>
+          <th>{{ _("Date") }}</th>
+          <th>{{ _("Duration") }}</th>
+        </tr>
+        {% for day_entry in time_entries.days %}
+          <tr>
+            <td class="date">{{ str_to_date(day_entry.iso_date, "full") }}</td>
+            <td>
+              {{ '%02d' | format(day_entry.total_duration_raw[0]|int) }}:{{ '%02d' |
+              format(day_entry.total_duration_raw[1]|int) }}:{{ '%02d' | format(day_entry.total_duration_raw[2]|int) }}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="tasks">
+      <table>
+        <tr>
+          <th>{{ _("Task") }}</th>
+          <th>{{ _("List") }}</th>
+          <th>{{ _("Folder") }}</th>
+          <th>{{ _("Project") }}</th>
+          <th>{{ _("Duration") }}</th>
+        </tr>
+        {% for task in time_entries.tasks %}
+          <tr>
+            <td>{{ task.name }}</td>
+            <td>{{ task.list }}</td>
+            <td>{{ task.folder }}</td>
+            <td>{{ task.project }}</td>
+            {# <td>{{ task.total_duration_human }}</td> #}
+            <td>
+              {{ '%02d' | format(task.total_duration_raw[0]|int) }}:{{ '%02d' |
+              format(task.total_duration_raw[1]|int) }}:{{ '%02d' | format(task.total_duration_raw[2]|int) }}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+    <div class="summary">
+      <p>
+        {{ _("Total duration:") }} {{ time_entries.total_duration.hours | int }} {{ _("hours") }} {{
+        time_entries.total_duration.minutes | int
+        }}
+        {{ _("minutes") }}
+      </p>
+    </div>
+    {% if customer_signature_field or consultant_signature_field %}
+      <div class="signature">
+        {% if consultant_signature_field %}
+          <span class="consultant-signature-label">{{ _("Consultant's signature:") }}</span>
+        {% endif %}
+        {% if customer_signature_field %}
+          <span class="customer-signature-label">{{ _("Customer's signature:") }}</span>
+        {% endif %}
+      </div>
+    {% endif %}
+  </body>
 </html>
