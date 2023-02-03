@@ -72,7 +72,7 @@
      src="{{ base64_company_logo }}"
      alt="company logo"/>{% endif %}
     <h1>{{ document_title }}</h1>
-    {% if time_entries.from_date or entries.to_date %}
+    {% if time_entries.from_date or time_entries.to_date %}
       <h3 class="date-boundaries">
         {% if time_entries.from_date %}
           <span class="from-date">{{ _("From:") }} {{ str_to_date(time_entries.from_date, "short") }}</span>
