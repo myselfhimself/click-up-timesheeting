@@ -433,10 +433,10 @@ def test_cli_output_from_input_json(
         command_line_list += ["--consultant-name", consultant_name]
     
     if customer_signature_field:
-        command_line_list += ["--customer-signature-field", customer_signature_field]
+        command_line_list += ["--customer-signature-field"]
     
     if consultant_signature_field:
-        command_line_list += ["--consultant-signature-field", consultant_signature_field]
+        command_line_list += ["--consultant-signature-field"]
 
     if language:
         command_line_list += ["--language", language]
