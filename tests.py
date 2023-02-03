@@ -467,6 +467,6 @@ def test_main_output_from_mocked_api(
             click_up_timereport.main(**kwargs)
     else:
         click_up_timereport.main(**kwargs)
-        if output_format:
+        if output_format and provide_output_path:
             assert Path(output_test_file_path).resolve().is_file()
             assert os.path.getsize(output_test_file_path) > 500
