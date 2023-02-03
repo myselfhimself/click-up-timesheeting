@@ -221,9 +221,9 @@ def test_render_pdf(monkeypatch, import_success):
     def monkey_import_notfound(name, globals=None, locals=None, fromlist=(), level=0):
         if name in ("weasyprint",):
             raise ModuleNotFoundError(f"Mocked module not found {name}")
-        return real_import(
-            name, globals=globals, locals=locals, fromlist=fromlist, level=level
-        )
+        #return real_import(
+        #    name, globals=globals, locals=locals, fromlist=fromlist, level=level
+        #)
 
     with open("examples/example1.html", "r") as fp:
         html_content = fp.read()
