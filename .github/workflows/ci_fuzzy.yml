@@ -1,4 +1,4 @@
-name: Run Pytest Fuzzy CLI Test Suite
+name: Run Pytest Fuzzy CLI Test Suite :)
 
 # Trigger this workflow only if this file changes...
 # This job takes about 1H to complete on Github Actions..

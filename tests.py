@@ -417,7 +417,7 @@ def setup_requests_mock(
             "english",
         ],
         [
-            None,
+            True,
             DEFAULT_TEAM_ID,
             True,
             "broken",
