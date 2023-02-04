@@ -346,9 +346,7 @@ def render_time_entries_html(
         language = DEFAULT_LANGUAGE
 
     def jinja_render_date_str_with_babel(a_date, format="full"):
-        if not a_date:
-            return None
-        date = dateutil.parser.parse(a_date)
+        date = dateutil.parser.parse(a_date) if a_date else None
         return format_date(date, format=format, locale=language)
 
     environment = Environment(

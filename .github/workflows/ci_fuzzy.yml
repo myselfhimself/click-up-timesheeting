@@ -1,15 +1,19 @@
-name: Run Pytest Short CLI Test Suite
+name: Run Pytest Fuzzy CLI Test Suite
 
+# Trigger this workflow only if this file changes...
+# This job takes about 1H to complete on Github Actions..
 on:
   push:
+    paths:
+      - '**ci_fuzzy.yml'
 
 jobs:
-  clickup-timesheeting-pytest-run-short-test-suite:
+  clickup-timesheeting-pytest-run-fuzzy-test-suite:
 
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.9] #[3.7, 3.8, 3.9]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -21,7 +25,7 @@ jobs:
         pip install -r requirements.txt
         pip install -r test-requirements.txt
         # The tests create an artifact/ and artifact-cli/ directories
-        make tests
+        make tests-fuzzy
     - name: Archive CLI test pdf/json/html files as Github artifacts
       if: always()
       uses: actions/upload-artifact@v3

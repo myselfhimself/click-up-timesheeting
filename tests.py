@@ -25,6 +25,10 @@ click_up_timereport = __import__("click-up-timereport")
 EXECUTABLE_UNDER_TEST = "click-up-timereport.py"
 ARTIFACTS_DIRECTORY = "artifacts"  # no trailing slash
 ARTIFACTS_DIRECTORY_CLI = "artifacts-cli"  # no trailing slash
+DEFAULT_TITLE = "Some title"
+DEFAULT_LOGO = "templates/company-logo.png"
+DEFAULT_CUSTOMER_NAME = "Mr Ab Customer"
+DEFAULT_CONSULTANT_NAME = "Mrs Ba Consultant"
 DEFAULT_TEAM_API_URL = "https://api.clickup.com/api/v2/team"
 DEFAULT_TIME_ENTRIES_API_URL = "https://api.clickup.com/api/v2/team/{}/time_entries"
 DEFAULT_TASK_API_URL = "https://api.clickup.com/api/v2/task/{}"
@@ -345,6 +349,7 @@ def setup_requests_mock(
         requests_mock.get(DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_JSON)
 
     if entries:
+        print("setting up entries mock request")
         requests_mock.get(
             DEFAULT_TIME_ENTRIES_API_URL.format(DEFAULT_TEAM_ID),
             json=DEFAULT_TIME_ENTRIES_JSON,
@@ -357,6 +362,327 @@ def setup_requests_mock(
             DEFAULT_TASK_API_URL.format(DEFAULT_TASK_ID),
             json=DEFAULT_TASK_JSON,
         )
+
+
+# @pytest.mark.parametrize(
+#    "click_up_team_id", [DEFAULT_TEAM_ID]
+# )  # single value for speed
+# @pytest.mark.parametrize("missing_input_json_path", [True, False, "broken"])
+# @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
+# @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
+# @pytest.mark.parametrize("output_format", ["json", "pdf", "html"])
+# @pytest.mark.parametrize("output_title", ["Some title", False])
+# @pytest.mark.parametrize("company_logo", ["templates/company-logo.png", None])
+# @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
+# @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
+# @pytest.mark.parametrize("customer_signature_field", [True, False])
+# @pytest.mark.parametrize("consultant_signature_field", [True, False])
+# @pytest.mark.parametrize("language", ["french", "english", False])
+@pytest.mark.parametrize(
+    "click_up_token,click_up_team_id,from_json,missing_input_json_path,from_date,to_date,should_output_file,output_format,output_title,company_logo,customer_name,consultant_name,customer_signature_field,consultant_signature_field,language",
+    [
+        [
+            None,
+            DEFAULT_TEAM_ID,
+            True,
+            False,
+            DEFAULT_FROM_DATE,
+            DEFAULT_TO_DATE,
+            True,
+            "json",
+            DEFAULT_TITLE,
+            DEFAULT_LOGO,
+            DEFAULT_CUSTOMER_NAME,
+            DEFAULT_CONSULTANT_NAME,
+            True,
+            True,
+            "french",
+        ],
+        [
+            None,
+            None,
+            True,
+            True,
+            None,
+            DEFAULT_TO_DATE,
+            True,
+            "pdf",
+            None,
+            None,
+            None,
+            None,
+            False,
+            False,
+            "english",
+        ],
+        [
+            None,
+            DEFAULT_TEAM_ID,
+            True,
+            "broken",
+            None,
+            None,
+            True,
+            "html",
+            DEFAULT_TITLE,
+            DEFAULT_LOGO,
+            None,
+            DEFAULT_CONSULTANT_NAME,
+            False,
+            True,
+            None,
+        ],
+    ],
+)
+def test_cli_output_from_input_json_new(
+    click_up_token,
+    click_up_team_id,
+    from_json,
+    missing_input_json_path,
+    from_date,
+    to_date,
+    should_output_file,
+    output_format,
+    output_title,
+    company_logo,
+    customer_name,
+    consultant_name,
+    customer_signature_field,
+    consultant_signature_field,
+    language,
+):
+    os.makedirs(ARTIFACTS_DIRECTORY_CLI, exist_ok=True)
+
+    input_vars = locals()
+    output_test_file_path = get_output_filename_from_locals(
+        input_vars, output_format, for_cli=True
+    )
+
+    command_line_list = ["python", EXECUTABLE_UNDER_TEST]
+
+    if click_up_token:
+        command_line_list += ["--click-up-token", DEFAULT_CLICKUP_TOKEN]
+
+    if from_json:
+        command_line_list += ["--from-json"]
+
+    broken_input_json_path = "/tmp/broken.json"
+    if missing_input_json_path == "broken":
+        with open(broken_input_json_path, "w+") as fp:
+            fp.write("{}")  # JSON with required keys missing
+        command_line_list += ["--json-input-path", broken_input_json_path]
+    elif not missing_input_json_path:
+        command_line_list += ["--json-input-path", DEFAULT_INPUT_JSON_PATH]
+
+    if click_up_team_id:
+        command_line_list += ["--click-up-team-id", click_up_team_id]
+
+    if from_date:
+        command_line_list += ["--from-date", from_date]
+
+    if to_date:
+        command_line_list += ["--to-date", to_date]
+
+    if should_output_file and output_format:
+        command_line_list += ["--as-{}".format(output_format)]
+        command_line_list += ["--as-{}".format(output_format)]
+        command_line_list += [
+            "--{}-output-path".format(output_format),
+            output_test_file_path,
+        ]
+
+    if output_title:
+        command_line_list += ["--output-title", output_title]
+
+    if company_logo:
+        command_line_list += ["--company-logo-img-path", company_logo]
+
+    if customer_name:
+        command_line_list += ["--customer-name", customer_name]
+
+    if consultant_name:
+        command_line_list += ["--consultant-name", consultant_name]
+
+    if customer_signature_field:
+        command_line_list += ["--customer-signature-field"]
+
+    if consultant_signature_field:
+        command_line_list += ["--consultant-signature-field"]
+
+    if language:
+        command_line_list += ["--language", language]
+
+    result = subprocess.run(command_line_list)
+    if missing_input_json_path is True or missing_input_json_path == "broken":
+        assert result.returncode > 0
+        if missing_input_json_path == "broken":
+            os.unlink(broken_input_json_path)
+    else:
+        assert result.returncode == 0
+        assert Path(output_test_file_path).resolve().is_file()
+        assert os.path.getsize(output_test_file_path) > 1000
+
+
+# @pytest.mark.parametrize(
+#    "click_up_team_id", [DEFAULT_TEAM_ID]
+# )  # single value for speed
+# @pytest.mark.parametrize("missing_input_json_path", [True, False, "broken"])
+# @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
+# @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
+# @pytest.mark.parametrize("output_format", ["json", "pdf", "html"])
+# @pytest.mark.parametrize("output_title", ["Some title", False])
+# @pytest.mark.parametrize("company_logo", ["templates/company-logo.png", None])
+# @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
+# @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
+# @pytest.mark.parametrize("customer_signature_field", [True, False])
+# @pytest.mark.parametrize("consultant_signature_field", [True, False])
+# @pytest.mark.parametrize("language", ["french", "english", False])
+@pytest.mark.parametrize(
+    "click_up_token,click_up_team_id,from_date,to_date,output_format,provide_output_path,output_title,company_logo,customer_name,consultant_name,language",
+    [
+        [
+            DEFAULT_CLICKUP_TOKEN,
+            DEFAULT_TEAM_ID,
+            DEFAULT_FROM_DATE,
+            DEFAULT_TO_DATE,
+            None,
+            None,
+            DEFAULT_TITLE,
+            DEFAULT_LOGO,
+            DEFAULT_CUSTOMER_NAME,
+            DEFAULT_CONSULTANT_NAME,
+            "french",
+        ],
+        [
+            "set_env",
+            "set_env",
+            None,
+            DEFAULT_TO_DATE,
+            "pdf",
+            True,
+            DEFAULT_TITLE,
+            "notexists",
+            None,
+            None,
+            "english",
+        ],
+        [
+            "set_env",
+            "set_env",
+            None,
+            DEFAULT_TO_DATE,
+            "pdf",
+            True,
+            DEFAULT_TITLE,
+            None,
+            None,
+            None,
+            "english",
+        ],
+        [
+            "set_env",
+            "set_env",
+            None,
+            DEFAULT_TO_DATE,
+            "html",
+            True,
+            DEFAULT_TITLE,
+            None,
+            None,
+            None,
+            "english",
+        ],
+        [
+            "set_env",
+            "set_env",
+            None,
+            DEFAULT_TO_DATE,
+            "json",
+            True,
+            DEFAULT_TITLE,
+            None,
+            None,
+            None,
+            "english",
+        ],
+    ],
+)
+def test_main_output_from_mocked_api_new(
+    requests_mock,
+    click_up_token,
+    click_up_team_id,
+    from_date,
+    to_date,
+    output_format,
+    provide_output_path,
+    output_title,
+    company_logo,
+    customer_name,
+    consultant_name,
+    language,
+    monkeypatch,
+):
+    input_vars = locals()
+
+    if click_up_token == "set_env":
+        monkeypatch.setenv("CLICKUP_PK", DEFAULT_CLICKUP_TOKEN, prepend=False)
+
+    if click_up_team_id == "set_env":
+        monkeypatch.setenv("CLICKUP_TEAM_ID", DEFAULT_TEAM_ID, prepend=False)
+
+    os.makedirs(ARTIFACTS_DIRECTORY, exist_ok=True)
+
+    setup_requests_mock(requests_mock, all=True)
+
+    kwargs = {
+        "click_up_token": DEFAULT_CLICKUP_TOKEN,
+    }
+
+    if output_format:
+        output_test_file_path = get_output_filename_from_locals(
+            input_vars, output_format, for_cli=False
+        )
+        kwargs["as_{}".format(output_format)] = True
+        if provide_output_path:
+            kwargs["{}_output_path".format(output_format)] = output_test_file_path
+
+    if click_up_token != "set_env":
+        kwargs["click_up_token"] = click_up_token
+
+    if click_up_team_id != "set_env":
+        kwargs["click_up_team_id"] = click_up_team_id
+
+    if from_date:
+        kwargs["from_date"] = from_date
+
+    if to_date:
+        kwargs["to_date"] = to_date
+
+    if output_title:
+        kwargs["output_title"] = output_title
+
+    if company_logo:
+        kwargs["company_logo_img_path"] = company_logo
+
+    if customer_name:
+        kwargs["customer_name"] = customer_name
+
+    if consultant_name:
+        kwargs["consultant_name"] = consultant_name
+
+    if language:
+        kwargs["language"] = language
+
+    if (
+        not click_up_token and not os.environ.get("CLICKUP_PK")
+    ) or company_logo == "notexists":
+        with pytest.raises(SystemExit) as e:
+            click_up_timereport.main(**kwargs)
+    else:
+        click_up_timereport.main(**kwargs)
+        if output_format and provide_output_path:
+            assert Path(output_test_file_path).resolve().is_file()
+            assert os.path.getsize(output_test_file_path) > 500
 
 
 @pytest.mark.parametrize(
@@ -373,7 +699,8 @@ def setup_requests_mock(
 @pytest.mark.parametrize("customer_signature_field", [True, False])
 @pytest.mark.parametrize("consultant_signature_field", [True, False])
 @pytest.mark.parametrize("language", ["french", "english", False])
-def test_cli_output_from_input_json(
+@pytest.mark.fuzzy
+def test_fuzzy_cli_output_from_input_json(
     click_up_team_id,
     missing_input_json_path,
     from_date,
@@ -431,10 +758,10 @@ def test_cli_output_from_input_json(
 
     if consultant_name:
         command_line_list += ["--consultant-name", consultant_name]
-    
+
     if customer_signature_field:
         command_line_list += ["--customer-signature-field"]
-    
+
     if consultant_signature_field:
         command_line_list += ["--consultant-signature-field"]
 
@@ -465,7 +792,8 @@ def test_cli_output_from_input_json(
 @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
 @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
 @pytest.mark.parametrize("language", ["french", "english", False])
-def test_main_output_from_mocked_api(
+@pytest.mark.fuzzy
+def test_fuzzy_main_output_from_mocked_api(
     requests_mock,
     click_up_token,
     click_up_team_id,
