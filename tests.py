@@ -16,13 +16,14 @@ import html5lib  # provided by weasyprint
 import requests_mock as req_mock
 from slugify import slugify
 
-click_up_timereport = __import__("click-up-timereport")
+MODULE_UNDER_TEST = "click_up_timesheeting"
+click_up_timesheeting = __import__(MODULE_UNDER_TEST)
 
 # using pre-installed 'requests_mock' contribute module without needing to import it
 
 # This is run by .github/workflows/ci.yml :)
 
-EXECUTABLE_UNDER_TEST = "click-up-timereport.py"
+EXECUTABLE_UNDER_TEST = "{}.py".format(MODULE_UNDER_TEST)
 ARTIFACTS_DIRECTORY = "artifacts"  # no trailing slash
 ARTIFACTS_DIRECTORY_CLI = "artifacts-cli"  # no trailing slash
 DEFAULT_TITLE = "Some title"
@@ -229,7 +230,7 @@ def get_output_filename_from_locals(input_vars, output_format, for_cli=False):
 def test_fetch_task_general_data(requests_mock):
     setup_requests_mock(requests_mock, task=True)
 
-    result = click_up_timereport.fetch_task_general_data(
+    result = click_up_timesheeting.fetch_task_general_data(
         DEFAULT_TASK_ID, DEFAULT_CLICKUP_TOKEN
     )
     assert result["name"] == DEFAULT_TASK_NAME
@@ -239,7 +240,7 @@ def test_fetch_task_general_data(requests_mock):
 def test_fetch_time_entries(requests_mock):
     setup_requests_mock(requests_mock, entries=True)
 
-    result = click_up_timereport.fetch_time_entries(
+    result = click_up_timesheeting.fetch_time_entries(
         **{
             "click_up_token": DEFAULT_CLICKUP_TOKEN,
             "click_up_team_id": DEFAULT_TEAM_ID,
@@ -254,7 +255,7 @@ def test_fetch_time_entries(requests_mock):
 def test_fetch_user_teams(requests_mock):
     setup_requests_mock(requests_mock, team=True)
 
-    result = click_up_timereport.fetch_user_teams(DEFAULT_CLICKUP_TOKEN)
+    result = click_up_timesheeting.fetch_user_teams(DEFAULT_CLICKUP_TOKEN)
     assert result[0]["id"] == DEFAULT_TEAM_ID
 
 
@@ -278,18 +279,18 @@ def test_render_pdf(monkeypatch, import_success):
             m.delitem(sys.modules, "weasyprint", raising=False)
             m.setattr(builtins, "__import__", monkey_import_notfound)
             with pytest.raises(SystemExit):
-                click_up_timereport.render_pdf(
+                click_up_timesheeting.render_pdf(
                     html_content, pdf_output_path=temp_pdf_path
                 )
     else:
-        click_up_timereport.render_pdf(html_content, pdf_output_path=temp_pdf_path)
+        click_up_timesheeting.render_pdf(html_content, pdf_output_path=temp_pdf_path)
         os.unlink(temp_pdf_path)
 
 
 def test_render_time_entries_html():
     with open("examples/example1.json", "r") as fp:
         time_entries = json.loads(fp.read())
-    html_str = click_up_timereport.render_time_entries_html(
+    html_str = click_up_timesheeting.render_time_entries_html(
         time_entries
     )  # calling with almost only default parameters
     html5parser = html5lib.HTMLParser(strict=True)
@@ -303,23 +304,23 @@ def test_grab_time_entries(
     monkeypatch, missing_pk_env, missing_team_id_env, teams_found, requests_mock
 ):
     with monkeypatch.context() as m:
-        m.setattr("click-up-timereport.CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
-        m.setattr("click-up-timereport.CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
+        m.setattr(MODULE_UNDER_TEST+".CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
+        m.setattr(MODULE_UNDER_TEST+".CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
         setup_requests_mock(requests_mock, all=True)
 
         if missing_pk_env:
-            m.setattr("click-up-timereport.CLICKUP_PK", None)
+            m.setattr(MODULE_UNDER_TEST+".CLICKUP_PK", None)
         else:
-            m.setattr("click-up-timereport.CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
+            m.setattr(MODULE_UNDER_TEST+".CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
 
         if missing_team_id_env:
-            m.setattr("click-up-timereport.CLICKUP_TEAM_ID", None)
+            m.setattr(MODULE_UNDER_TEST+".CLICKUP_TEAM_ID", None)
         else:
-            m.setattr("click-up-timereport.CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
+            m.setattr(MODULE_UNDER_TEST+".CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
 
         if missing_pk_env:
             with pytest.raises(SystemExit) as e:
-                click_up_timereport.grab_time_entries()
+                click_up_timesheeting.grab_time_entries()
         else:
             if missing_team_id_env:
                 with req_mock.Mocker() as mocker:
@@ -328,7 +329,7 @@ def test_grab_time_entries(
                             DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_EMPTY_JSON
                         )
                         with pytest.raises(SystemExit) as e:
-                            click_up_timereport.grab_time_entries()
+                            click_up_timesheeting.grab_time_entries()
                     elif teams_found == 1:
                         mocker.get(DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_JSON)
                     elif teams_found > 1:
@@ -336,8 +337,8 @@ def test_grab_time_entries(
                             DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_MULTIPLE_JSON
                         )
                         with pytest.raises(SystemExit) as e:
-                            click_up_timereport.grab_time_entries()
-            click_up_timereport.grab_time_entries()
+                            click_up_timesheeting.grab_time_entries()
+            click_up_timesheeting.grab_time_entries()
 
 
 def setup_requests_mock(
@@ -677,9 +678,9 @@ def test_main_output_from_mocked_api_new(
         not click_up_token and not os.environ.get("CLICKUP_PK")
     ) or company_logo == "notexists":
         with pytest.raises(SystemExit) as e:
-            click_up_timereport.main(**kwargs)
+            click_up_timesheeting.main(**kwargs)
     else:
-        click_up_timereport.main(**kwargs)
+        click_up_timesheeting.main(**kwargs)
         if output_format and provide_output_path:
             assert Path(output_test_file_path).resolve().is_file()
             assert os.path.getsize(output_test_file_path) > 500
@@ -860,9 +861,9 @@ def test_fuzzy_main_output_from_mocked_api(
         not click_up_token and not os.environ.get("CLICKUP_PK")
     ) or company_logo == "notexists":
         with pytest.raises(SystemExit) as e:
-            click_up_timereport.main(**kwargs)
+            click_up_timesheeting.main(**kwargs)
     else:
-        click_up_timereport.main(**kwargs)
+        click_up_timesheeting.main(**kwargs)
         if output_format and provide_output_path:
             assert Path(output_test_file_path).resolve().is_file()
             assert os.path.getsize(output_test_file_path) > 500

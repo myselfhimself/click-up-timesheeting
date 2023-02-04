@@ -25,13 +25,13 @@ If the team ID (a digits value) is absent, it will be guessed from the user's te
 
 ```
 pip install -r requirements.txt
-python click-up-timereport.py --click-up-token='pk_MY API KEY' [--click-up-team-id='MY_DIGITS_TEAMID']
+python click_up_timesheeting.py --click-up-token='pk_MY API KEY' [--click-up-team-id='MY_DIGITS_TEAMID']
 ```
 
 See the `--help` or examples/quickstart sections below for more information.
 
 ```
-python click-up-timereport.py --help
+python click_up_timesheeting.py --help
 ```
 
 ## Examples
@@ -60,7 +60,7 @@ A little preview:
 
 1. Run with optional date boundaries parameters and Click-Up token:
 
-    ``python click-up-timereport.py # from now since 1 year ago``
+    ``python click_up_timesheeting.py # from now since 1 year ago``
 
     Output:
     ```
@@ -79,20 +79,20 @@ A little preview:
      Total: 8h0m55
      ```
 
-    ``python click-up-timereport.py --from_date=2022-11-01 # till now``
+    ``python click_up_timesheeting.py --from_date=2022-11-01 # till now``
 
-    ``python click-up-timereport.py --to_date=2022-12-30 # from 1 year before that date (default shift)``
+    ``python click_up_timesheeting.py --to_date=2022-12-30 # from 1 year before that date (default shift)``
 
-    ``python click-up-timereport.py --from_date=2022-11-01 --to_date=2022-11-30 # with times from 00:00:00 to 23:59:59``
+    ``python click_up_timesheeting.py --from_date=2022-11-01 --to_date=2022-11-30 # with times from 00:00:00 to 23:59:59``
 
-    ``python click-up-timereport.py --from_date=2022-11-01 --to_date=2022-11-30 --click_up_token=pk_SOMETHING --click_up_team_id=123DIGITSONLY45 # with Click-Up API token and team_id provided on CLI instead of .env``
+    ``python click_up_timesheeting.py --from_date=2022-11-01 --to_date=2022-11-30 --click_up_token=pk_SOMETHING --click_up_team_id=123DIGITSONLY45 # with Click-Up API token and team_id provided on CLI instead of .env``
 
 ## Input format
 ### JSON
 The JSON file which the script outputs can be piped again to by command to prevent fetching Click-Up again:
 ```
-python click-up-timereport.py --from-date=2023-01-01 --to-date=2023-01-31 --as-json --json-output-path=a.json
-python click-up-timereport.py --from-date=2023-01-01 --to-date=2023-01-31 --from-json --json-input-path=a.json
+python click_up_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --as-json --json-output-path=a.json
+python click_up_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --from-json --json-input-path=a.json
 ```
 
 ### Template
@@ -105,28 +105,28 @@ Internally, the script creates a big Python dictionary, which it can dump as JSO
 Use `--as-json` and `--json-output-path=<full path to a json file>` together.
 
 ```
-python click-up-timereport.py --from-date=2023-01-01 --to-date=2023-01-31 --as-json --json-output-path=a.json
+python click\_up\_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --as-json --json-output-path=a.json
 ```
 
 ### HTML
 Use `--as-html` and `--html-output-path=<full path to an HTML file>` together.
 
 ```
-python click-up-timereport.py --from-date=2023-01-01 --to-date=2023-01-31 --as-html --html-output-path=a.html
+python click\_up\_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --as-html --html-output-path=a.html
 ```
 
 ### PDF
 Use `--as-pdf` and `--pdf-output-path=<full path to a PDF file>` together.
 
 ```
-python click-up-timereport.py --from-date=2023-01-01 --to-date=2023-01-31 --as-pdf --pdf-output-path=a.pdf
+python click\_up\_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --as-pdf --pdf-output-path=a.pdf
 ```
 
 ## Locale / Language
 For now english (default) and french are supported, with the `--language` option.
 
 ```
-python click-up-timereport.py --from-date=2023-01-01 --to-date=2023-01-31 --as-pdf --pdf-output-path=a.pdf --language=french # or --language=english
+python click\_up\_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --as-pdf --pdf-output-path=a.pdf --language=french # or --language=english
 ```
 
 ## Enriching HTML & PDF outputs
