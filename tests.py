@@ -16,6 +16,7 @@ import html5lib  # provided by weasyprint
 import requests_mock as req_mock
 from slugify import slugify
 
+
 @pytest.fixture
 def maker():
     return click_up_timesheeting.ClickUpTimesheetMaker(
@@ -255,6 +256,7 @@ def test_fetch_user_teams(requests_mock, maker):
     result = maker.fetch_user_teams()
     assert result[0]["id"] == DEFAULT_TEAM_ID
 
+
 @pytest.mark.oop
 @pytest.mark.parametrize("import_success", [True, False])
 def test_render_pdf(monkeypatch, import_success, maker):
@@ -276,12 +278,11 @@ def test_render_pdf(monkeypatch, import_success, maker):
             m.delitem(sys.modules, "weasyprint", raising=False)
             m.setattr(builtins, "__import__", monkey_import_notfound)
             with pytest.raises(SystemExit):
-                maker.render_pdf(
-                    html_content, pdf_output_path=temp_pdf_path
-                )
+                maker.render_pdf(html_content, pdf_output_path=temp_pdf_path)
     else:
         maker.render_pdf(html_content, pdf_output_path=temp_pdf_path)
         os.unlink(temp_pdf_path)
+
 
 @pytest.mark.oop
 def test_render_time_entries_html(maker):
@@ -297,8 +298,9 @@ def test_render_time_entries_html(maker):
 @pytest.mark.parametrize("missing_pk_env", [True, False])
 @pytest.mark.parametrize("missing_team_id_env", [True, False])
 @pytest.mark.parametrize("teams_found", [0, 1, 2])
+@pytest.mark.oop
 def test_grab_time_entries(
-    monkeypatch, missing_pk_env, missing_team_id_env, teams_found, requests_mock, maker
+    monkeypatch, missing_pk_env, missing_team_id_env, teams_found, requests_mock
 ):
     with monkeypatch.context() as m:
         m.setattr(MODULE_UNDER_TEST + ".CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
@@ -317,7 +319,7 @@ def test_grab_time_entries(
 
         if missing_pk_env:
             with pytest.raises(SystemExit) as e:
-                maker.grab_time_entries()
+                click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
         else:
             if missing_team_id_env:
                 with req_mock.Mocker() as mocker:
@@ -326,7 +328,7 @@ def test_grab_time_entries(
                             DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_EMPTY_JSON
                         )
                         with pytest.raises(SystemExit) as e:
-                            maker.grab_time_entries()
+                            click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
                     elif teams_found == 1:
                         mocker.get(DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_JSON)
                     elif teams_found > 1:
@@ -334,8 +336,8 @@ def test_grab_time_entries(
                             DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_MULTIPLE_JSON
                         )
                         with pytest.raises(SystemExit) as e:
-                            maker.grab_time_entries()
-            maker.grab_time_entries()
+                            click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
+            click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
 
 
 def setup_requests_mock(
@@ -404,6 +406,23 @@ def setup_requests_mock(
             DEFAULT_TEAM_ID,
             True,
             "broken",
+            None,
+            None,
+            True,
+            "html",
+            DEFAULT_TITLE,
+            DEFAULT_LOGO,
+            None,
+            DEFAULT_CONSULTANT_NAME,
+            False,
+            True,
+            None,
+        ],
+        [
+            True,
+            DEFAULT_TEAM_ID,
+            True,
+            True,
             None,
             None,
             True,
@@ -506,6 +525,7 @@ def test_cli_output_from_input_json_new(
         assert result.returncode == 0
         assert Path(output_test_file_path).resolve().is_file()
         assert os.path.getsize(output_test_file_path) > 1000
+
 
 @pytest.mark.parametrize(
     "click_up_token,click_up_team_id,from_date,to_date,output_format,provide_output_path,output_title,company_logo,customer_name,consultant_name,language",
