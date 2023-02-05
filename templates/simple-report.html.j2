@@ -9,6 +9,15 @@
     <style>
     @page {
       size: A4 portrait;
+
+      @bottom-center {
+        content: element(footer);
+      }
+      {% if pagination_footer %}
+      @bottom-right {
+        content: "{{ _("page-count-label") }} " counter(page) "{{ _("page-count-separator") }}" counter(pages);
+      }
+      {% endif %}
     }
 
     img.company-logo {
@@ -64,6 +73,13 @@
       display: flex;
       justify-content: space-evenly;
       margin-bottom: 5em;
+    }
+
+    footer {
+      color: grey;
+      font-size:1em;
+      position: running(footer);
+      text-align: center;
     }
     </style>
   </head>
@@ -131,6 +147,9 @@
         time_entries.total_duration.minutes | int
         }}
         {{ _("minutes") }}
+        {% if total_hours_as_float %}
+          ({{ format_decimal(time_entries.total_duration.hours_as_float, locale=locale) }} {{ _("hours") }})
+        {% endif %}
       </p>
     </div>
     {% if customer_signature_field or consultant_signature_field %}
@@ -142,6 +161,11 @@
           <span class="customer-signature-label">{{ _("Customer's signature:") }}</span>
         {% endif %}
       </div>
+    {% endif %}
+    {% if click_up_mention %}
+      <footer>
+        {{ _("Data originating from the Click-Up web platform.") }}
+      </footer>
     {% endif %}
   </body>
 </html>

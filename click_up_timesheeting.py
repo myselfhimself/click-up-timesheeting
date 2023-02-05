@@ -9,6 +9,7 @@ import sys
 
 # contrib modules
 from babel.dates import format_date
+from babel.numbers import format_decimal
 from dateutil import tz
 import dateutil.parser
 from dateutil.relativedelta import relativedelta
@@ -45,18 +46,66 @@ class ClickUpTimesheetMaker:
     # Days-based view for time tracking
     DAYS = {}
 
+    from_date = None
+    to_date = None
     click_up_token = None
     click_up_team_id = None
+    click_up_mention = False
     time_zone = None
     language = None
+    verbose = False
+    quiet = False
+    title = DEFAULT_HTML_TITLE
+    company_logo = None
+    customer_name = None
+    consultant_name = None
+    customer_signature_field = False
+    consultant_signature_field = False
+    total_hours_as_float = False
+    click_up_mention = False
+    json_input_path = None
+    pagination_footer = True
+
+    __time_entries_cache = None
 
     def __init__(
         self,
+        from_date=None,
+        to_date=None,
         click_up_token=None,
         click_up_team_id=None,
+        click_up_mention=None,
+        json_input_path=None,
+        title=DEFAULT_HTML_TITLE,
+        company_logo=None,
+        customer_name=None,
+        consultant_name=None,
+        customer_signature_field=False,
+        consultant_signature_field=False,
+        total_hours_as_float=False,
+        pagination_footer=True,
         time_zone=DEFAULT_TIMEZONE,
         language=DEFAULT_LANGUAGE,
+        verbose=False,
+        quiet=False,
     ) -> None:
+        self.verbose = verbose
+        self.quiet = quiet
+
+        self.from_date = from_date
+        self.to_date = to_date
+        self.title = title
+        self.company_logo = company_logo
+        self.customer_name = customer_name
+        self.consultant_name = consultant_name
+        self.customer_signature_field = customer_signature_field
+        self.consultant_signature_field = consultant_signature_field
+        self.total_hours_as_float = total_hours_as_float
+        self.click_up_mention = click_up_mention
+        self.pagination_footer = pagination_footer
+
+        self.json_input_path = json_input_path
+
         # API token is compulsory
         if not click_up_token:
             if CLICKUP_PK:
@@ -67,10 +116,13 @@ class ClickUpTimesheetMaker:
                 )
                 sys.exit(1)
 
+        self.click_up_token = click_up_token
+        self.print_verbose("Stored click_up_token:", self.click_up_token)
+
         # team_id can be provided or will be guessed from https://clickup.com/api/clickupreference/operation/GetAuthorizedTeams/
         if not click_up_team_id:
             if CLICKUP_TEAM_ID:
-                print("Using CLICKUP_TEAM_ID from environment.")
+                self.print_verbose("Using CLICKUP_TEAM_ID from environment.")
                 click_up_team_id = CLICKUP_TEAM_ID
             else:
                 user_teams = self.fetch_user_teams()
@@ -91,14 +143,15 @@ class ClickUpTimesheetMaker:
                     exit(1)
                 else:
                     click_up_team_id = user_teams[0]["id"]
-                    print(
+                    self.print_verbose(
                         "Guessing team_id as user's only assigned team: {} ({}).".format(
                             user_teams[0]["name"], click_up_team_id
                         )
                     )
-        self.click_up_token = click_up_token
         self.click_up_team_id = click_up_team_id
+
         self.time_zone = tz.gettz(time_zone)
+
         self.language = (
             DEFAULT_LANGUAGE
             if not language
@@ -124,8 +177,14 @@ class ClickUpTimesheetMaker:
 
         response = requests.get(url, headers=headers, params=query)
 
+        self.exit_if_response_error(
+            response, "task properties retrieval (task_id: {})".format(task_id)
+        )
+
         data = response.json()
+
         self.TASKS[task_id] = data
+
         return data
 
     def formatted_total_duration_human(self, tdh):
@@ -142,6 +201,20 @@ class ClickUpTimesheetMaker:
             total_seconds,
         )
 
+    def exit_if_response_error(self, response, context_name):
+        data = response.json()
+        if (
+            response.status_code in (401, 403)
+            or ("ECODE" in data and data["ECODE"].startswith("OAUTH"))
+            or ("err" in data and "authorization" in data["err"].lower())
+        ):
+            print(
+                "You seem unauthenticated, is your Click-Up token valid? (click_up_token: {}, context: {})".format(
+                    self.click_up_token, context_name
+                )
+            )
+            sys.exit(1)
+
     def fetch_user_teams(self):
         url = "https://api.clickup.com/api/v2/team"
 
@@ -149,7 +222,10 @@ class ClickUpTimesheetMaker:
 
         response = requests.get(url, headers=headers)
 
+        self.exit_if_response_error(response, "user team retrieval")
+
         data = response.json()
+
         return data["teams"]
 
     def fetch_time_entries(self, from_date, to_date):
@@ -178,7 +254,7 @@ class ClickUpTimesheetMaker:
         else:
             from_date += " 00:00:00"
 
-        print(
+        self.print_notice(
             "Gathering Click-Up time entries from {} to {}".format(
                 from_date, to_date if to_date else "now"
             )
@@ -213,7 +289,10 @@ class ClickUpTimesheetMaker:
 
         response = requests.get(url, headers=headers, params=query)
 
+        self.exit_if_response_error(response, "user time entries retrieval")
+
         data = response.json()
+
         return data["data"]
 
     def grab_time_entries(
@@ -270,15 +349,23 @@ class ClickUpTimesheetMaker:
             ] = self.tupled_total_duration_human(self.DAYS[task_date]["total_duration"])
 
             # Step progress output
-            print(".", end="", flush=True)
-        print()
+            self.print_notice(".", end="", flush=True)
+        self.print_notice()
 
-    def get_time_entries(self, from_date, to_date):
-        """Prepares a time entries and total dictionary from TASKS and DAYS views.
-        This function's results can be piped into print_time_entries() or render_time_entries_html() for console or HTML/PDF rendering.
+    def get_time_entries_from_json(self):
+        self.print_notice("Using", self.json_input_path)
+        with open(self.json_input_path, "r") as json_file:
+            time_entries = json.load(json_file)
+            if time_entries.keys() < JSON_REQUIRED_KEYS:
+                print(
+                    "Input JSON file is missing keys, expected at least:",
+                    JSON_REQUIRED_KEYS,
+                )
+                exit(1)
 
-        This should be called after grab_time_entries() which takes care of populating depending data views.
-        """
+            return time_entries
+
+    def get_time_entries_from_api(self):
         days = [
             {
                 "human_date": self.DAYS[date]["human_date"],
@@ -308,24 +395,52 @@ class ClickUpTimesheetMaker:
         minutes, seconds = divmod(undived_total_seconds, 60)
         hours, minutes = divmod(minutes, 60)
 
+        hours_as_float = round(hours + minutes / 60 + seconds / 3600, 2)
+
         return {
-            "from_date": from_date,
-            "to_date": to_date,
+            "from_date": self.from_date,
+            "to_date": self.to_date,
             "days": days,
             "tasks": tasks,
-            "total_duration": {"hours": hours, "minutes": minutes, "seconds": seconds},
+            "total_duration": {
+                "hours": hours,
+                "minutes": minutes,
+                "seconds": seconds,
+                "hours_as_float": hours_as_float,
+            },
         }
 
-    def print_time_entries(self, entries):
-        """Prints nicely day-based and task-based statistics, as stored in the TASKS and DAYS views."""
-        print("Daily time sheet:")
-        for date_entry in entries["days"]:
-            print(date_entry["human_date"], date_entry["total_duration_human"])
+    def get_time_entries(self, use_cache=True):
+        """Prepares a time entries and total dictionary from TASKS and DAYS views.
+        This function's results can be piped into print_time_entries() or render_time_entries_html() for console or HTML/PDF rendering.
 
-        print()
-        print("Tasks summary:")
+        This should be called after grab_time_entries() which takes care of populating depending data views.
+        """
+        if self.__time_entries_cache and use_cache:
+            self.print_verbose("Reusing cached entries.")
+            return self.__time_entries_cache
+        else:
+            if self.json_input_path:
+                self.print_verbose("Filling cache with JSON entries.")
+                self.__time_entries_cache = self.get_time_entries_from_json()
+            else:
+                self.print_verbose("Filling cache with API result entries.")
+                self.__time_entries_cache = self.get_time_entries_from_api()
+            return self.__time_entries_cache
+
+    def print_time_entries(self, total_hours_as_float):
+        entries = self.get_time_entries()
+        """Prints nicely day-based and task-based statistics, as stored in the TASKS and DAYS views."""
+        self.print_notice("Daily time sheet:")
+        for date_entry in entries["days"]:
+            self.print_notice(
+                date_entry["human_date"], date_entry["total_duration_human"]
+            )
+
+        self.print_notice()
+        self.print_notice("Tasks summary:")
         for task in entries["tasks"]:
-            print(
+            self.print_notice(
                 task["name"],
                 task["list"],
                 task["project"],
@@ -333,26 +448,34 @@ class ClickUpTimesheetMaker:
                 task["total_duration_human"],
             )
 
-        print()
-        print(
-            "Total: {hours:.0f}h{minutes:.0f}m{seconds:.0f}".format(
-                **entries["total_duration"]
+        self.print_notice()
+        hours_as_float_human = (
+            " ({}h)".format(entries["total_duration"]["hours_as_float"])
+            if total_hours_as_float
+            else ""
+        )
+        self.print_notice(
+            "Total: {hours:.0f}h{minutes:.0f}m{seconds:.0f}{hours_as_float_human}".format(
+                hours=entries["total_duration"]["hours"],
+                minutes=entries["total_duration"]["minutes"],
+                seconds=entries["total_duration"]["seconds"],
+                hours_as_float_human=hours_as_float_human,
             )
         )
 
-    def render_time_entries_html(
-        self,
-        time_entries,
-        title=None,
-        company_logo=None,
-        customer_name=None,
-        consultant_name=None,
-        customer_signature_field=None,
-        consultant_signature_field=None,
-    ):
+    def render_time_entries_html(self):
+        time_entries = self.get_time_entries()
+
         company_logo_base64 = None
-        if company_logo:
-            with open(company_logo, "rb") as logo_fp:
+        if self.company_logo:
+            if not os.path.exists(self.company_logo):
+                print(
+                    "Provided company logo file path ({}) does not exist.".format(
+                        self.company_logo
+                    )
+                )
+                exit(1)
+            with open(self.company_logo, "rb") as logo_fp:
                 company_logo_base64 = "data:image/png;base64," + base64.encodebytes(
                     logo_fp.read()
                 ).decode("utf-8")
@@ -370,29 +493,42 @@ class ClickUpTimesheetMaker:
             os.path.abspath(os.path.join(os.path.dirname(__file__), "locale")),
             languages=[self.language],
         )
-        environment.install_gettext_translations(translations)
+        environment.install_gettext_translations(translations, newstyle=True)
 
-        if not title:
-            title = gettext.gettext(DEFAULT_HTML_TITLE)
+        title = gettext.gettext(self.title)
 
         template = environment.get_template(DEFAULT_HTML_JINJA_TEMPLATE)
         template.globals["str_to_date"] = jinja_render_date_str_with_babel
+        template.globals["format_decimal"] = format_decimal
         content = template.render(
             {
                 "document_title": title,
                 "html_lang": ("fr" if self.language.startswith("fr") else "en"),
-                "customer_name": customer_name,
-                "consultant_name": consultant_name,
+                "customer_name": self.customer_name,
+                "consultant_name": self.consultant_name,
                 "time_entries": time_entries,
                 "base64_company_logo": company_logo_base64,
-                "customer_signature_field": customer_signature_field,
-                "consultant_signature_field": consultant_signature_field,
+                "customer_signature_field": self.customer_signature_field,
+                "consultant_signature_field": self.consultant_signature_field,
+                "total_hours_as_float": self.total_hours_as_float,
+                "locale": self.language,
+                "click_up_mention": self.click_up_mention,
+                "pagination_footer": self.pagination_footer,
             },
             presentational_hints=True,
         )
         return content
 
-    def render_pdf(self, html_content, pdf_output_path=DEFAULT_PDF_OUTPUT_PATH):
+    def render_html(self, html_output_path):
+        html_output_path = html_output_path or DEFAULT_HTML_OUTPUT_PATH
+        html_content = self.render_time_entries_html()
+        with open(html_output_path, "w") as fp:
+            fp.write(html_content)
+        self.print_notice("Wrote", html_output_path)
+
+    def render_pdf(self, pdf_output_path=DEFAULT_PDF_OUTPUT_PATH):
+        pdf_output_path = pdf_output_path or DEFAULT_PDF_OUTPUT_PATH
+
         try:
             from weasyprint import HTML
         except ModuleNotFoundError:
@@ -401,7 +537,23 @@ class ClickUpTimesheetMaker:
             )
             exit(1)
 
+        html_content = self.render_time_entries_html()
         HTML(string=html_content).write_pdf(pdf_output_path)
+        self.print_notice("Wrote", pdf_output_path)
+
+    def render_json(self, json_output_path=DEFAULT_JSON_OUTPUT_PATH):
+        json_output_path = json_output_path or DEFAULT_JSON_OUTPUT_PATH
+        with open(json_output_path, "w") as fp:
+            fp.write(json.dumps(self.get_time_entries(), indent=DEFAULT_JSON_INDENTS))
+        self.print_notice("Wrote", json_output_path)
+
+    def print_verbose(self, *args, **kwargs):
+        if self.verbose and not self.quiet:
+            print(*args, **kwargs)
+
+    def print_notice(self, *args, **kwargs):
+        if not self.quiet:
+            print(*args, **kwargs)
 
 
 def main(
@@ -425,76 +577,59 @@ def main(
     consultant_name=None,
     customer_signature_field=False,
     consultant_signature_field=False,
+    total_hours_as_float=False,
+    click_up_mention=False,
+    pagination_footer=True,
+    verbose=False,
+    quiet=False,
 ):
     maker = ClickUpTimesheetMaker(
+        from_date=from_date,
+        to_date=to_date,
         click_up_token=click_up_token,
         click_up_team_id=click_up_team_id,
-        time_zone=time_zone,
-        language=language,
-    )
-
-    print("Language:", maker.language)
-
-    # The from_json and json_input_path options allow reusing a JSON file already output with the as_json+json_output_path options pair
-    # This provides a manual form of caching
-    if from_json:
-        if not json_input_path:
-            print("You must use --json-input-path with --from-json")
-            exit(1)
-        else:
-            print("Using", json_input_path)
-            with open(json_input_path, "r") as json_file:
-                time_entries = json.load(json_file)
-                if time_entries.keys() < JSON_REQUIRED_KEYS:
-                    print(
-                        "Input JSON file is missing keys, expected at least:",
-                        JSON_REQUIRED_KEYS,
-                    )
-                    exit(1)
-    else:
-        # Grab time entries from Click-Up's online API
-        maker.grab_time_entries(from_date=from_date, to_date=to_date)
-
-        # Make a nice consolidated dictionary ready for all forms of template rendering
-        time_entries = maker.get_time_entries(from_date, to_date)
-
-    # JSON output
-    if as_json:
-        json_output_path = json_output_path or DEFAULT_JSON_OUTPUT_PATH
-        with open(json_output_path, "w") as fp:
-            fp.write(json.dumps(time_entries, indent=DEFAULT_JSON_INDENTS))
-        print("Wrote", json_output_path)
-
-    # CLI standard output
-    maker.print_time_entries(time_entries)
-
-    if company_logo_img_path:
-        if not os.path.exists(company_logo_img_path):
-            print("Provided company logo file does not exist.")
-            exit(1)
-
-    html_content = maker.render_time_entries_html(
-        time_entries,
+        click_up_mention=click_up_mention,
+        json_input_path=json_input_path,
         title=output_title,
         company_logo=company_logo_img_path,
         customer_name=customer_name,
         consultant_name=consultant_name,
         customer_signature_field=customer_signature_field,
         consultant_signature_field=consultant_signature_field,
+        total_hours_as_float=total_hours_as_float,
+        pagination_footer=pagination_footer,
+        time_zone=time_zone,
+        language=language,
+        verbose=verbose,
+        quiet=quiet,
     )
+    maker.print_verbose("Incoming click_up_token from CLI:", click_up_token)
+
+    maker.print_verbose("Language:", maker.language)
+
+    # The from_json and json_input_path options allow reusing a JSON file already output with the as_json+json_output_path options pair
+    # This provides a manual form of caching
+    if from_json and not json_input_path:
+        print("You must use --json-input-path with --from-json")
+        exit(1)
+    else:
+        # Grab time entries from Click-Up's online API
+        maker.grab_time_entries(from_date=from_date, to_date=to_date)
+
+    # JSON output
+    if as_json:
+        maker.render_json(json_output_path=json_output_path)
+
+    # CLI standard output
+    maker.print_time_entries(total_hours_as_float)
 
     # HTML output
     if as_html:
-        html_output_path = html_output_path or DEFAULT_HTML_OUTPUT_PATH
-        with open(html_output_path, "w") as fp:
-            fp.write(html_content)
-        print("Wrote", html_output_path)
+        maker.render_html(html_output_path=html_output_path)
 
     # PDF output
     if as_pdf:
-        pdf_output_path = pdf_output_path or DEFAULT_PDF_OUTPUT_PATH
-        maker.render_pdf(html_content=html_content, pdf_output_path=pdf_output_path)
-        print("Wrote", pdf_output_path)
+        maker.render_pdf(pdf_output_path=pdf_output_path)
 
 
 if __name__ == "__main__":

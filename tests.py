@@ -256,6 +256,19 @@ def test_fetch_user_teams(requests_mock, maker):
     result = maker.fetch_user_teams()
     assert result[0]["id"] == DEFAULT_TEAM_ID
 
+@pytest.mark.oop
+@pytest.mark.parametrize("from_date,to_date",[[None, None], [DEFAULT_FROM_DATE, DEFAULT_TO_DATE]])
+def test_get_time_entries(from_date, to_date, maker):
+    result_empty_params = maker.get_time_entries(from_date=from_date, to_date=to_date)
+    assert "from_date" in result_empty_params
+    assert "to_date" in result_empty_params
+    assert "days" in result_empty_params
+    assert "tasks" in result_empty_params
+    assert "total_duration" in result_empty_params
+    assert "hours" in result_empty_params["total_duration"]
+    assert "minutes" in result_empty_params["total_duration"]
+    assert "seconds" in result_empty_params["total_duration"]
+    assert "hours_as_float" in result_empty_params["total_duration"]
 
 @pytest.mark.oop
 @pytest.mark.parametrize("import_success", [True, False])
