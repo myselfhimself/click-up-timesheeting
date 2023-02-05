@@ -16,8 +16,16 @@ import html5lib  # provided by weasyprint
 import requests_mock as req_mock
 from slugify import slugify
 
+
+@pytest.fixture
+def maker():
+    return click_up_timesheeting.ClickUpTimesheetMaker(
+        click_up_token=DEFAULT_CLICKUP_TOKEN, click_up_team_id=DEFAULT_TEAM_ID
+    )
+
+
 MODULE_UNDER_TEST = "click_up_timesheeting"
-click_up_timesheeting = __import__(MODULE_UNDER_TEST)
+import click_up_timesheeting
 
 # using pre-installed 'requests_mock' contribute module without needing to import it
 
@@ -227,40 +235,44 @@ def get_output_filename_from_locals(input_vars, output_format, for_cli=False):
     )
 
 
-def test_fetch_task_general_data(requests_mock):
+@pytest.mark.oop
+def test_fetch_task_general_data(requests_mock, maker):
     setup_requests_mock(requests_mock, task=True)
-
-    result = click_up_timesheeting.fetch_task_general_data(
-        DEFAULT_TASK_ID, DEFAULT_CLICKUP_TOKEN
-    )
+    result = maker.fetch_task_general_data(DEFAULT_TASK_ID)
     assert result["name"] == DEFAULT_TASK_NAME
     assert result["id"] == DEFAULT_TASK_ID
 
 
-def test_fetch_time_entries(requests_mock):
+@pytest.mark.oop
+def test_fetch_time_entries(requests_mock, maker):
     setup_requests_mock(requests_mock, entries=True)
-
-    result = click_up_timesheeting.fetch_time_entries(
-        **{
-            "click_up_token": DEFAULT_CLICKUP_TOKEN,
-            "click_up_team_id": DEFAULT_TEAM_ID,
-            "from_date": "2023-01-01",
-            "to_date": "2023-01-31",
-            "current_tz": tz.tzfile("/usr/share/zoneinfo/Europe/Paris"),
-        }
-    )
-    assert result[0]["id"] == "1963465985517105840"
+    result = maker.fetch_time_entries(from_date="2023-01-01", to_date="2023-01-31")
+    assert result[0]["id"] == DEFAULT_TIME_ENTRIES_JSON["data"][0]["id"]
 
 
-def test_fetch_user_teams(requests_mock):
+@pytest.mark.oop
+def test_fetch_user_teams(requests_mock, maker):
     setup_requests_mock(requests_mock, team=True)
-
-    result = click_up_timesheeting.fetch_user_teams(DEFAULT_CLICKUP_TOKEN)
+    result = maker.fetch_user_teams()
     assert result[0]["id"] == DEFAULT_TEAM_ID
 
+@pytest.mark.oop
+@pytest.mark.parametrize("from_date,to_date",[[None, None], [DEFAULT_FROM_DATE, DEFAULT_TO_DATE]])
+def test_get_time_entries(from_date, to_date, maker):
+    result_empty_params = maker.get_time_entries(from_date=from_date, to_date=to_date)
+    assert "from_date" in result_empty_params
+    assert "to_date" in result_empty_params
+    assert "days" in result_empty_params
+    assert "tasks" in result_empty_params
+    assert "total_duration" in result_empty_params
+    assert "hours" in result_empty_params["total_duration"]
+    assert "minutes" in result_empty_params["total_duration"]
+    assert "seconds" in result_empty_params["total_duration"]
+    assert "hours_as_float" in result_empty_params["total_duration"]
 
+@pytest.mark.oop
 @pytest.mark.parametrize("import_success", [True, False])
-def test_render_pdf(monkeypatch, import_success):
+def test_render_pdf(monkeypatch, import_success, maker):
     # Monkeypatching code inspired by http://materials-scientist.com/blog/2021/02/11/mocking-failing-module-import-python/
     real_import = builtins.__import__
 
@@ -279,18 +291,17 @@ def test_render_pdf(monkeypatch, import_success):
             m.delitem(sys.modules, "weasyprint", raising=False)
             m.setattr(builtins, "__import__", monkey_import_notfound)
             with pytest.raises(SystemExit):
-                click_up_timesheeting.render_pdf(
-                    html_content, pdf_output_path=temp_pdf_path
-                )
+                maker.render_pdf(html_content, pdf_output_path=temp_pdf_path)
     else:
-        click_up_timesheeting.render_pdf(html_content, pdf_output_path=temp_pdf_path)
+        maker.render_pdf(html_content, pdf_output_path=temp_pdf_path)
         os.unlink(temp_pdf_path)
 
 
-def test_render_time_entries_html():
+@pytest.mark.oop
+def test_render_time_entries_html(maker):
     with open("examples/example1.json", "r") as fp:
         time_entries = json.loads(fp.read())
-    html_str = click_up_timesheeting.render_time_entries_html(
+    html_str = maker.render_time_entries_html(
         time_entries
     )  # calling with almost only default parameters
     html5parser = html5lib.HTMLParser(strict=True)
@@ -300,27 +311,28 @@ def test_render_time_entries_html():
 @pytest.mark.parametrize("missing_pk_env", [True, False])
 @pytest.mark.parametrize("missing_team_id_env", [True, False])
 @pytest.mark.parametrize("teams_found", [0, 1, 2])
+@pytest.mark.oop
 def test_grab_time_entries(
     monkeypatch, missing_pk_env, missing_team_id_env, teams_found, requests_mock
 ):
     with monkeypatch.context() as m:
-        m.setattr(MODULE_UNDER_TEST+".CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
-        m.setattr(MODULE_UNDER_TEST+".CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
+        m.setattr(MODULE_UNDER_TEST + ".CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
+        m.setattr(MODULE_UNDER_TEST + ".CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
         setup_requests_mock(requests_mock, all=True)
 
         if missing_pk_env:
-            m.setattr(MODULE_UNDER_TEST+".CLICKUP_PK", None)
+            m.setattr(MODULE_UNDER_TEST + ".CLICKUP_PK", None)
         else:
-            m.setattr(MODULE_UNDER_TEST+".CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
+            m.setattr(MODULE_UNDER_TEST + ".CLICKUP_PK", DEFAULT_CLICKUP_TOKEN)
 
         if missing_team_id_env:
-            m.setattr(MODULE_UNDER_TEST+".CLICKUP_TEAM_ID", None)
+            m.setattr(MODULE_UNDER_TEST + ".CLICKUP_TEAM_ID", None)
         else:
-            m.setattr(MODULE_UNDER_TEST+".CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
+            m.setattr(MODULE_UNDER_TEST + ".CLICKUP_TEAM_ID", DEFAULT_TEAM_ID)
 
         if missing_pk_env:
             with pytest.raises(SystemExit) as e:
-                click_up_timesheeting.grab_time_entries()
+                click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
         else:
             if missing_team_id_env:
                 with req_mock.Mocker() as mocker:
@@ -329,7 +341,7 @@ def test_grab_time_entries(
                             DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_EMPTY_JSON
                         )
                         with pytest.raises(SystemExit) as e:
-                            click_up_timesheeting.grab_time_entries()
+                            click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
                     elif teams_found == 1:
                         mocker.get(DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_JSON)
                     elif teams_found > 1:
@@ -337,8 +349,8 @@ def test_grab_time_entries(
                             DEFAULT_TEAM_API_URL, json=DEFAULT_USER_TEAMS_MULTIPLE_JSON
                         )
                         with pytest.raises(SystemExit) as e:
-                            click_up_timesheeting.grab_time_entries()
-            click_up_timesheeting.grab_time_entries()
+                            click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
+            click_up_timesheeting.ClickUpTimesheetMaker().grab_time_entries()
 
 
 def setup_requests_mock(
@@ -365,20 +377,6 @@ def setup_requests_mock(
         )
 
 
-# @pytest.mark.parametrize(
-#    "click_up_team_id", [DEFAULT_TEAM_ID]
-# )  # single value for speed
-# @pytest.mark.parametrize("missing_input_json_path", [True, False, "broken"])
-# @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
-# @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
-# @pytest.mark.parametrize("output_format", ["json", "pdf", "html"])
-# @pytest.mark.parametrize("output_title", ["Some title", False])
-# @pytest.mark.parametrize("company_logo", ["templates/company-logo.png", None])
-# @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
-# @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
-# @pytest.mark.parametrize("customer_signature_field", [True, False])
-# @pytest.mark.parametrize("consultant_signature_field", [True, False])
-# @pytest.mark.parametrize("language", ["french", "english", False])
 @pytest.mark.parametrize(
     "click_up_token,click_up_team_id,from_json,missing_input_json_path,from_date,to_date,should_output_file,output_format,output_title,company_logo,customer_name,consultant_name,customer_signature_field,consultant_signature_field,language",
     [
@@ -433,8 +431,26 @@ def setup_requests_mock(
             True,
             None,
         ],
+        [
+            True,
+            DEFAULT_TEAM_ID,
+            True,
+            True,
+            None,
+            None,
+            True,
+            "html",
+            DEFAULT_TITLE,
+            DEFAULT_LOGO,
+            None,
+            DEFAULT_CONSULTANT_NAME,
+            False,
+            True,
+            None,
+        ],
     ],
 )
+@pytest.mark.oop
 def test_cli_output_from_input_json_new(
     click_up_token,
     click_up_team_id,
@@ -524,20 +540,6 @@ def test_cli_output_from_input_json_new(
         assert os.path.getsize(output_test_file_path) > 1000
 
 
-# @pytest.mark.parametrize(
-#    "click_up_team_id", [DEFAULT_TEAM_ID]
-# )  # single value for speed
-# @pytest.mark.parametrize("missing_input_json_path", [True, False, "broken"])
-# @pytest.mark.parametrize("from_date", [DEFAULT_FROM_DATE, None])
-# @pytest.mark.parametrize("to_date", [DEFAULT_TO_DATE, None])
-# @pytest.mark.parametrize("output_format", ["json", "pdf", "html"])
-# @pytest.mark.parametrize("output_title", ["Some title", False])
-# @pytest.mark.parametrize("company_logo", ["templates/company-logo.png", None])
-# @pytest.mark.parametrize("customer_name", ["Mr Customer", False])
-# @pytest.mark.parametrize("consultant_name", ["Ms Consultant", False])
-# @pytest.mark.parametrize("customer_signature_field", [True, False])
-# @pytest.mark.parametrize("consultant_signature_field", [True, False])
-# @pytest.mark.parametrize("language", ["french", "english", False])
 @pytest.mark.parametrize(
     "click_up_token,click_up_team_id,from_date,to_date,output_format,provide_output_path,output_title,company_logo,customer_name,consultant_name,language",
     [
@@ -608,6 +610,7 @@ def test_cli_output_from_input_json_new(
         ],
     ],
 )
+@pytest.mark.oop
 def test_main_output_from_mocked_api_new(
     requests_mock,
     click_up_token,

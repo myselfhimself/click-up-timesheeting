@@ -87,6 +87,12 @@ A little preview:
 
     ``python click_up_timesheeting.py --from_date=2022-11-01 --to_date=2022-11-30 --click_up_token=pk_SOMETHING --click_up_team_id=123DIGITSONLY45 # with Click-Up API token and team_id provided on CLI instead of .env``
 
+## Verbosity / quietness of console output
+Use `--verbose` or `--quiet` (the latter supersedes the former).
+
+## Template
+The report's template for HTML/PDF output can be fine-tuned in `templates/simple-report.html.j2`, using the Jinja2 syntax (similar to Twig in the PHP world).
+
 ## Input format
 ### JSON
 The JSON file which the script outputs can be piped again to by command to prevent fetching Click-Up again:
@@ -94,9 +100,6 @@ The JSON file which the script outputs can be piped again to by command to preve
 python click_up_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --as-json --json-output-path=a.json
 python click_up_timesheeting.py --from-date=2023-01-01 --to-date=2023-01-31 --from-json --json-input-path=a.json
 ```
-
-### Template
-The report's template can be fine-tuned in `templates/simple-report.html.j2`, using the Jinja2 syntax (similar to Twig in the PHP world).
 
 ## Output formats
 Internally, the script creates a big Python dictionary, which it can dump as JSON, and/or feeds it to an HTML template to output both the HTML and PDF reports. So that JSON file is useful if you would like to template things your own way.
@@ -149,6 +152,17 @@ Add `--customer-signature-field` to show a customer signature field at the page'
 
 ## Consultant signature field
 Add `--consultant-signature-field` to show a consultant signature field at the page's bottom.
+
+## Total hours as float
+Add `--total-hours-as-float` to show total worked hours as a float next to regular total hours. Works for both the CLI and HTML/PDF outputs.
+
+Note that the JSON output always includes a `{total_hours: {..., total_hours_as_float: <float>}` key, regardless of the `--total-hours-as-float` parameter.
+
+## Click-Up data origin mention
+Add `--click-up-mention` to add a statement about the presented data coming from the Click-Up platform, as an HTML/PDF page footer.
+
+## Pagination footer
+Add `--pagination-footer 0` to disable the pagination footer (enabled by default).
 
 ## i18n tips
 
